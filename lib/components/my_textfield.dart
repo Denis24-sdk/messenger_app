@@ -1,3 +1,4 @@
+// lib/components/my_textfield.dart
 import 'package:flutter/material.dart';
 
 class MyTextField extends StatelessWidget {
@@ -20,16 +21,8 @@ class MyTextField extends StatelessWidget {
         controller: controller,
         obscureText: obscureText,
         decoration: InputDecoration(
-          enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.tertiary),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
-          ),
-          fillColor: Theme.of(context).colorScheme.secondary,
-          filled: true,
+          border: const OutlineInputBorder(),
           hintText: hintText,
-          hintStyle: TextStyle(color: Theme.of(context).colorScheme.primary),
         ),
       ),
     );
