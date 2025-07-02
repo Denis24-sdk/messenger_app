@@ -13,68 +13,60 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController emailController = TextEditingController();
+  final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
   // Метод для входа пользователя
   void login() async {
-    // Показываем индикатор загрузки
-    showDialog(
-      context: context,
-      builder: (context) => const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
 
-    try {
-      // Прячем индикатор загрузки, если мы еще на этом экране
-      if (mounted) Navigator.pop(context);
 
-      // Пытаемся выполнить вход
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
-      );
 
-    } on FirebaseAuthException catch (e) {
-      // Прячем индикатор загрузки
-      Navigator.pop(context);
-      // Показываем ошибку пользователю
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Произошла ошибка")),
-      );
-    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.background,
-      body: SafeArea(
+      body: SafeArea( // Добавил SafeArea
         child: Center(
-          child: SingleChildScrollView(
+          child: SingleChildScrollView( // Добавил SingleChildScrollView
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                // ... logo, welcome message ...
                 const SizedBox(height: 50),
                 const Icon(Icons.message, size: 100),
                 const SizedBox(height: 50),
                 const Text("С возвращением, мы скучали!"),
                 const SizedBox(height: 25),
+
+                // --- ИЗМЕНЕНИЕ: поле для логина ---
                 MyTextField(
-                  controller: emailController,
-                  hintText: 'Email',
+                  hintText: "Логин",
                   obscureText: false,
+                  controller: usernameController,
                 ),
+
                 const SizedBox(height: 10),
+
+                // password textfield
                 MyTextField(
-                  controller: passwordController,
-                  hintText: 'Пароль',
+                  hintText: "Пароль",
                   obscureText: true,
+                  controller: passwordController,
                 ),
+
                 const SizedBox(height: 25),
-                MyButton(onTap: login, text: "Войти"),
-                const SizedBox(height: 50),
+
+                // login button
+                MyButton(
+                  text: "Войти",
+                  onTap: login,
+                ),
+
+                const SizedBox(height: 25),
+
+                // ... register now ...
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
