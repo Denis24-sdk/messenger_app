@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:messenger_flutter/models/message.dart';
 
 
 class ChatService {
@@ -20,5 +21,24 @@ class ChatService {
 
   Future<void> signOut() async {
     return await _auth.signOut();
+  }
+
+  // ОТПРАВКА СООБЩЕНИЙ
+  Future<void> sendMessage(String receiverID, String message) async {
+    // Получаем информацию о текущем пользователе
+    final String currentUserID = _auth.currentUser!.uid;
+    final String currentUserEmail = _auth.currentUser!.email!;
+    final Timestamp timestamp = Timestamp.now();
+
+    // Создаем новое сообщение
+    Message newMessage = Message(
+      senderID: currentUserID,
+      senderEmail: currentUserEmail,
+      receiverID: receiverID,
+      message: message,
+      timestamp: timestamp,
+    );
+
+    // TODO: Создать ID чата и добавить сообщение в базу данных
   }
 }
