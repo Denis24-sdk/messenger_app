@@ -39,7 +39,7 @@ class ChatService {
       timestamp: timestamp,
     );
 
-    // Создаем ID чата из UID текущего пользователя и получателя (отсортированных) 
+    // Создаем ID чата из UID текущего пользователя и получателя (отсортированных)
     List<String> ids = [currentUserID, receiverID];
     ids.sort(); // Сортируем ID, это гарантирует, что ID чата всегда будет одинаковым для любой пары
     String chatRoomID = ids.join('_'); // Объединяем их в одну строку
@@ -50,6 +50,21 @@ class ChatService {
         .doc(chatRoomID)
         .collection("messages")
         .add(newMessage.toMap());
+  }
+
+  // МЕТОД ПОЛУЧЕНИЕ СООБЩЕНИЙ
+  Stream<QuerySnapshot> getMessages(String userID, String otherUserID) {
+    // Создаем ID комнаты чата из ID двух пользователей
+    List<String> ids = [userID, otherUserID];
+    ids.sort();
+    String chatRoomID = ids.join('_');
+
+    return _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages")
+        .orderBy("timestamp", descending: false) // Сортируем сообщения по времени
+        .snapshots();
   }
 
 }
