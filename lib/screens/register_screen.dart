@@ -14,6 +14,7 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
+  final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
@@ -56,6 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await _firestore.collection("Users").doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
         'email': emailController.text,
+        'username': usernameController.text,
       });
 
 
@@ -84,6 +86,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 50),
                 const Text("Давайте создадим аккаунт для вас!"),
                 const SizedBox(height: 25),
+
+                MyTextField(
+                  controller: usernameController,
+                  hintText: 'Логин',
+                  obscureText: false,
+                ),
+                const SizedBox(height: 10),
                 MyTextField(
                   controller: emailController,
                   hintText: 'Email',
@@ -104,6 +113,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 const SizedBox(height: 25),
                 MyButton(onTap: register, text: "Зарегистрироваться"),
                 const SizedBox(height: 50),
+
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
