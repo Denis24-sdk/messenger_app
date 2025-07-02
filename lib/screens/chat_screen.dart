@@ -50,7 +50,7 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.receiverEmail)),
+      appBar: AppBar(title: Text(widget.receiverEmail)), // receiverEmail теперь содержит логин
       body: Column(
         children: [
           Expanded(

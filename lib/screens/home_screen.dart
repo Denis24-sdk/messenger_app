@@ -71,17 +71,24 @@ class HomeScreen extends StatelessWidget {
   // Строим отдельный элемент списка
   Widget _buildUserListItem(
       Map<String, dynamic> userData, BuildContext context) {
+    // отфильтровываем текущего пользователя
     if (userData["email"] != _auth.currentUser!.email) {
       return ListTile(
-        title: Text(userData["email"]),
-        onTap: () {
 
-          // При нажатии переходим на экран чата, передавая данные пользователя
+        leading: const CircleAvatar(
+          // Пока что просто иконка, но это место для будущей аватарке
+          child: Icon(Icons.person),
+        ),
+
+        // Используем оператор '??', чтобы показать email, если логина вдруг нет (для старых аккаунтов)  (для отладки, временно)
+        title: Text(userData["username"] ?? userData["email"]),
+        onTap: () {
+          // перейти в чат при нажатии
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => ChatScreen(
-                receiverEmail: userData["email"],
+                receiverEmail: userData["username"] ?? userData["email"],
                 receiverID: userData["uid"],
               ),
             ),
