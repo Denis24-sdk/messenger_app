@@ -1,7 +1,16 @@
 import 'package:flutter/material.dart';
-import '../screens/home_screen.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:messenger_flutter/firebase_options.dart';
+import 'package:messenger_flutter/screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Инициализируем Firebase с опциями для текущей платформы
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
   runApp(const MyApp());
 }
 

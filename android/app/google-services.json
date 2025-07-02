@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "39801800977",
+    "project_id": "messenger-app-6b103",
+    "storage_bucket": "messenger-app-6b103.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:39801800977:android:4f4ae8441aa6dba17624b0",
+        "android_client_info": {
+          "package_name": "com.example.messenger_flutter"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAr9UuwE3tvqOvXWm9mewBCUpo8FF2XlWk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
