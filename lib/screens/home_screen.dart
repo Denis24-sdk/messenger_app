@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:messenger_flutter/screens/chat_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   HomeScreen({super.key});
@@ -70,16 +71,25 @@ class HomeScreen extends StatelessWidget {
   // Строим отдельный элемент списка
   Widget _buildUserListItem(
       Map<String, dynamic> userData, BuildContext context) {
-    // отфильтровываем текущего пользователя
     if (userData["email"] != _auth.currentUser!.email) {
       return ListTile(
         title: Text(userData["email"]),
         onTap: () {
-          // перейти в чат при нажатии (позже)
+
+          // При нажатии переходим на экран чата, передавая данные пользователя
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreen(
+                receiverEmail: userData["email"],
+                receiverID: userData["uid"],
+              ),
+            ),
+          );
         },
       );
     } else {
-      return Container(); // Возвращаем пустой контейнер для себя
+      return Container();
     }
   }
 }
