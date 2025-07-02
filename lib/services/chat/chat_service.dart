@@ -41,8 +41,8 @@ class ChatService {
 
     // Создаем ID чата из UID текущего пользователя и получателя (отсортированных)
     List<String> ids = [currentUserID, receiverID];
-    ids.sort(); // Сортируем ID, это гарантирует, что ID чата всегда будет одинаковым для любой пары
-    String chatRoomID = ids.join('_'); // Объединяем их в одну строку
+    ids.sort();
+    String chatRoomID = ids.join('_');
 
     // Добавляем новое сообщение в базу данных
     await _firestore
@@ -63,7 +63,7 @@ class ChatService {
         .collection("chat_rooms")
         .doc(chatRoomID)
         .collection("messages")
-        .orderBy("timestamp", descending: false) // Сортируем сообщения по времени
+        .orderBy("timestamp", descending: false)
         .snapshots();
   }
 

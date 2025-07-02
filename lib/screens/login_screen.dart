@@ -1,8 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_button.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:glassmorphism/glassmorphism.dart';
 
 
 
@@ -25,8 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // Метод для входа пользователя
   void login() async {
-
-// Показываем индикатор загрузки
+    // Показываем индикатор загрузки
     showDialog(
       context: context,
       builder: (context) => const Center(child: CircularProgressIndicator()),
@@ -41,26 +42,32 @@ class _LoginScreenState extends State<LoginScreen> {
           .limit(1)
           .get();
 
-      // Проверяем, нашелся ли пользователь
       if (querySnapshot.docs.isEmpty) {
-        // Пользователь с таким логином не найден
         throw Exception('Пользователь с таким логином не найден');
       }
 
-      // 2. Извлечь email
       String userEmail = querySnapshot.docs.first['email'];
 
-      // 3. Выполнить вход по найденному email и паролю
-      await _auth.signInWithEmailAndPassword(
+      // Выполнить вход по найденному email и паролю
+      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
         email: userEmail,
         password: passwordController.text,
       );
 
+
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+
     } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
       // Обрабатываем любые ошибки (от Firestore или Auth)
       String errorMessage = "Произошла ошибка. Попробуйте снова.";
       if (e is FirebaseAuthException) {
-        // Конкретные ошибки Firebase Auth
         if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
           errorMessage = 'Неверный пароль.';
         } else {
@@ -70,79 +77,123 @@ class _LoginScreenState extends State<LoginScreen> {
         errorMessage = 'Пользователь с таким логином не найден.';
       }
 
-      // Показываем ошибку
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
-    } finally {
-      // В любом случае прячем индикатор загрузки
-      // Проверяем, что виджет все еще на экране
+      // показываем SnackBar
       if (mounted) {
-        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
       }
     }
-
+    // блок finally больше не нужен
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
-      body: SafeArea( // Добавил SafeArea
+      backgroundColor: Colors.transparent,
+      body: Container(
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage("assets/images/background.jpg"),
+            fit: BoxFit.cover,
+          ),
+        ),
         child: Center(
-          child: SingleChildScrollView( // Добавил SingleChildScrollView
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ... logo, welcome message ...
-                const SizedBox(height: 50),
-                const Icon(Icons.message, size: 100),
-                const SizedBox(height: 50),
-                const Text("С возвращением, мы скучали!"),
-                const SizedBox(height: 25),
-
-                // --- ИЗМЕНЕНИЕ: поле для логина ---
-                MyTextField(
-                  hintText: "Логин",
-                  obscureText: false,
-                  controller: usernameController,
-                ),
-
-                const SizedBox(height: 10),
-
-                // password textfield
-                MyTextField(
-                  hintText: "Пароль",
-                  obscureText: true,
-                  controller: passwordController,
-                ),
-
-                const SizedBox(height: 25),
-
-                // login button
-                MyButton(
-                  text: "Войти",
-                  onTap: login,
-                ),
-
-                const SizedBox(height: 25),
-
-                // ... register now ...
-                Row(
+          child: GlassmorphicContainer(
+            width: 350,
+            height: 500,
+            borderRadius: 20,
+            blur: 0,
+            alignment: Alignment.center,
+            border: 2,
+            linearGradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                HSLColor.fromColor(Colors.white).withAlpha(0.9).toColor(),
+                HSLColor.fromColor(Colors.black12).withAlpha(1).toColor(),
+              ],
+              stops: const [0.1, 1],
+            ),
+            borderGradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                HSLColor.fromColor(Colors.white).withAlpha(0.4).toColor(),
+                HSLColor.fromColor(Colors.white).withAlpha(0.1).toColor(),
+              ],
+            ),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(25.0),
+                child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text('Не зарегистрированы?'),
-                    const SizedBox(width: 4),
-                    GestureDetector(
-                      onTap: widget.onTap,
-                      child: const Text(
-                        'Создать аккаунт',
-                        style: TextStyle(fontWeight: FontWeight.bold),
+
+                    const Text(
+                      "Снова с нами?",
+                      style: TextStyle(
+                        fontSize: 36,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
                     ),
+                    const SizedBox(height: 10),
+                    Text(
+                      "Войдите, чтобы продолжить общение",
+                      style: TextStyle(
+                        fontSize: 18,
+                        color: Colors.grey[800],
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 40),
+
+
+                    MyTextField(
+                      hintText: "Логин",
+                      obscureText: false,
+                      controller: usernameController,
+                    ),
+                    const SizedBox(height: 15),
+                    MyTextField(
+                      hintText: "Пароль",
+                      obscureText: true,
+                      controller: passwordController,
+                    ),
+                    const SizedBox(height: 40),
+
+
+                    MyButton(
+                      text: "Войти",
+                      onTap: login,
+                    ),
+                    const SizedBox(height: 30),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Впервые здесь? ',
+                          style: TextStyle(color: Colors.grey[900], fontWeight: FontWeight.bold,),
+                        ),
+                        const SizedBox(width: 10),
+                        GestureDetector(
+                          onTap: widget.onTap,
+                          child: Text(
+                            'Создать аккаунт',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: HSLColor.fromColor(Colors.white).withAlpha(0.7).toColor(),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ],
-                )
-              ],
+                ),
+              ),
             ),
           ),
         ),

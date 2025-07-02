@@ -20,9 +20,16 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Messenger',
+      debugShowCheckedModeBanner: false,
+      title: 'Messenger',
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        brightness: Brightness.light,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.deepPurple,
+          brightness: Brightness.light,
+          surface: Color(0xFF0E0E0E),
+          onSurface: Colors.black,
+        ),
         useMaterial3: true,
       ),
       home: const AuthGate(),
