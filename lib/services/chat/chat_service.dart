@@ -39,6 +39,17 @@ class ChatService {
       timestamp: timestamp,
     );
 
-    // TODO: Создать ID чата и добавить сообщение в базу данных
+    // Создаем ID чата из UID текущего пользователя и получателя (отсортированных) 
+    List<String> ids = [currentUserID, receiverID];
+    ids.sort(); // Сортируем ID, это гарантирует, что ID чата всегда будет одинаковым для любой пары
+    String chatRoomID = ids.join('_'); // Объединяем их в одну строку
+
+    // Добавляем новое сообщение в базу данных
+    await _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages")
+        .add(newMessage.toMap());
   }
+
 }

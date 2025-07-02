@@ -1,6 +1,7 @@
 // lib/screens/chat_screen.dart
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
+import 'package:messenger_flutter/services/chat/chat_service.dart';
 
 class ChatScreen extends StatelessWidget {
   final String receiverEmail;
@@ -12,12 +13,20 @@ class ChatScreen extends StatelessWidget {
     required this.receiverID,
   });
 
-  // text controller
   final TextEditingController _messageController = TextEditingController();
 
-  // send message
+  // Создаем экземпляр сервиса
+  final ChatService _chatService = ChatService();
+
+  // Отправка сообщения
   void sendMessage() async {
-    // тут будет логика отправки
+    // Отправляем сообщение, только если поле не пустое
+    if (_messageController.text.isNotEmpty) {
+      await _chatService.sendMessage(receiverID, _messageController.text);
+
+      // Очищаем поле ввода после отправки
+      _messageController.clear();
+    }
   }
 
   @override
