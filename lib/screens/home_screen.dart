@@ -1,31 +1,85 @@
 import 'package:flutter/material.dart';
+import 'package:messenger_flutter/services/chat/chat_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatelessWidget {
-  const HomeScreen({super.key});
+  HomeScreen({super.key});
+
+  final ChatService _chatService = ChatService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // МЕТОД ВЫХОДА
+  void signOut(BuildContext context) async {
+
+    final authService = ChatService();
+    try {
+      await authService.signOut();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: const Text('Чаты'),
+        title: const Text("Главная"),
+        backgroundColor: Colors.transparent,
+        foregroundColor: Colors.grey,
+        elevation: 0,
+        actions: [
+          // Кнопка выхода
+          IconButton(
+            onPressed: () => signOut(context),
+            icon: const Icon(Icons.logout),
+          )
+        ],
       ),
-      body: ListView.builder(
-        itemCount: 15,
-        itemBuilder: (context, index) {
-          return const ListTile(
-            leading: CircleAvatar(
-              child: Icon(Icons.person),
-            ),
-            title: Text('Имя пользователя'),
-            subtitle: Text(
-              'Последнее сообщение в чате...',
-              overflow: TextOverflow.ellipsis,
-            ),
-            trailing: Text('18:32'),
-          );
-        },
-      ),
+      body: _buildUserList(),
     );
+  }
+
+  // Строим список пользователей
+  Widget _buildUserList() {
+    return StreamBuilder(
+      stream: _chatService.getUsersStream(),
+      builder: (context, snapshot) {
+        // Обработка ошибок
+        if (snapshot.hasError) {
+          return const Text("Ошибка");
+        }
+
+        // Загрузка
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Text("Загрузка...");
+        }
+
+        // Получаем список пользователей и строим ListView
+        return ListView(
+          children: snapshot.data!
+              .map<Widget>((userData) => _buildUserListItem(userData, context))
+              .toList(),
+        );
+      },
+    );
+  }
+
+  // Строим отдельный элемент списка
+  Widget _buildUserListItem(
+      Map<String, dynamic> userData, BuildContext context) {
+    // отфильтровываем текущего пользователя
+    if (userData["email"] != _auth.currentUser!.email) {
+      return ListTile(
+        title: Text(userData["email"]),
+        onTap: () {
+          // перейти в чат при нажатии (позже)
+        },
+      );
+    } else {
+      return Container(); // Возвращаем пустой контейнер для себя
+    }
   }
 }
