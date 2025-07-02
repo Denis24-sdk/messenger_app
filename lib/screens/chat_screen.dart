@@ -6,55 +6,66 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart'; // Нужен для получения ID
 
 
-class ChatScreen extends StatelessWidget {
+class ChatScreen extends StatefulWidget {
   final String receiverEmail;
   final String receiverID;
 
-  ChatScreen({
+  const ChatScreen({
     super.key,
     required this.receiverEmail,
     required this.receiverID,
   });
 
+  @override
+  State<ChatScreen> createState() => _ChatScreenState();
+}
+
+class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ChatService _chatService = ChatService();
-  final FirebaseAuth _auth = FirebaseAuth.instance; // Создаем экземпляр Auth
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  final ScrollController _scrollController = ScrollController();
 
-  // Отправка сообщения
   void sendMessage() async {
-    // Отправляем сообщение, только если поле не пустое
     if (_messageController.text.isNotEmpty) {
-      await _chatService.sendMessage(receiverID, _messageController.text);
-
-      // Очищаем поле ввода после отправки
+      // widget.receiverID для доступа к данным из StatefulWidget
+      await _chatService.sendMessage(widget.receiverID, _messageController.text);
       _messageController.clear();
+
+      scrollDown();
     }
+  }
+
+  // Прокрутка вниз
+  void scrollDown() {
+    _scrollController.animateTo(
+      _scrollController.position.maxScrollExtent,
+      duration: const Duration(seconds: 1),
+      curve: Curves.fastOutSlowIn,
+    );
   }
 
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(receiverEmail)),
+      appBar: AppBar(title: Text(widget.receiverEmail)),
       body: Column(
         children: [
-          // Область для сообщений
           Expanded(
             child: _buildMessageList(),
           ),
-          // Поле ввода
           _buildUserInput(),
         ],
       ),
     );
   }
 
-  // Виджет для списка сообщений
   Widget _buildMessageList() {
     String senderID = _auth.currentUser!.uid;
     return StreamBuilder(
-      stream: _chatService.getMessages(senderID, receiverID),
+      stream: _chatService.getMessages(senderID, widget.receiverID), // <-- widget.
       builder: (context, snapshot) {
         if (snapshot.hasError) {
           return const Text("Ошибка загрузки сообщений");
@@ -63,7 +74,11 @@ class ChatScreen extends StatelessWidget {
           return const Text("Загрузка...");
         }
 
+        // Прокрутка после построения списка
+        WidgetsBinding.instance.addPostFrameCallback((_) => scrollDown());
+
         return ListView(
+          controller: _scrollController,
           children: snapshot.data!.docs
               .map((doc) => _buildMessageItem(doc))
               .toList(),
@@ -72,17 +87,11 @@ class ChatScreen extends StatelessWidget {
     );
   }
 
-  // Виджет для одного сообщения
   Widget _buildMessageItem(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-
-    // Определяем, является ли сообщение нашим
     bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
-
-    // Выравниваем сообщение справа, если это мы, и слева, если собеседник
     var alignment =
     isCurrentUser ? Alignment.centerRight : Alignment.centerLeft;
-
     return Container(
       alignment: alignment,
       child: Column(
@@ -98,14 +107,11 @@ class ChatScreen extends StatelessWidget {
     );
   }
 
-
-  // Виджет для поля ввода
   Widget _buildUserInput() {
     return Padding(
       padding: const EdgeInsets.all(8.0),
       child: Row(
         children: [
-          // Поле для текста
           Expanded(
             child: MyTextField(
               controller: _messageController,
@@ -113,8 +119,6 @@ class ChatScreen extends StatelessWidget {
               obscureText: false,
             ),
           ),
-
-          // Кнопка отправки
           IconButton(
             onPressed: sendMessage,
             icon: const Icon(Icons.arrow_upward),
