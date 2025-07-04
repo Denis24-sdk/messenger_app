@@ -128,12 +128,21 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageList() {
-    return StreamBuilder(
+    return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getMessages(_auth.currentUser!.uid, widget.receiverID),
       builder: (context, snapshot) {
         if (snapshot.hasError) return const Text("Ошибка загрузки");
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        WidgetsBinding.instance.addPostFrameCallback((_) => scrollDown());
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _chatService.markMessagesAsRead(_chatRoomID, widget.receiverID);
+            scrollDown();
+          }
+        });
+
         return ListView(
           controller: _scrollController,
           padding: const EdgeInsets.all(8),
@@ -178,9 +187,8 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget _buildMessageItem(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
-
-    // Получаем статус прочтения (если поля нет, считаем что не прочитано)
     bool isRead = data['isRead'] ?? false;
+    bool isEdited = data['isEdited'] ?? false;
 
     return Container(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
@@ -188,6 +196,8 @@ class _ChatScreenState extends State<ChatScreen> {
         message: data["message"],
         isCurrentUser: isCurrentUser,
         isRead: isRead,
+        isEdited: isEdited,
+        onLongPress: () => _showMessageOptions(doc.id, data["message"]),
       ),
     );
   }
@@ -217,4 +227,63 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
+
+  void _showEditDialog(String messageID, String currentMessage) {
+    final TextEditingController editController = TextEditingController(text: currentMessage);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Редактировать сообщение"),
+        content: TextField(
+          controller: editController,
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Отмена"),
+          ),
+          TextButton(
+            onPressed: () {
+              _chatService.editMessage(_chatRoomID, messageID, editController.text);
+              Navigator.pop(context);
+            },
+            child: const Text("Сохранить"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMessageOptions(String messageID, String message) {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.edit),
+                title: const Text('Редактировать'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _showEditDialog(messageID, message);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.delete),
+                title: const Text('Удалить'),
+                onTap: () {
+                  _chatService.deleteMessage(_chatRoomID, messageID);
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 }

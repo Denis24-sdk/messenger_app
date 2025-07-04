@@ -132,4 +132,63 @@ class ChatService {
 
     await batch.commit();
   }
+
+
+
+  // для редактирования и удаления
+  Future<void> editMessage(String chatRoomID, String messageID, String newMessage) async {
+    final Timestamp newTimestamp = Timestamp.now();
+    final DocumentReference messageRef = _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages")
+        .doc(messageID);
+
+    // Обновляем само сообщение
+    await messageRef.update({
+      'message': newMessage,
+      'isEdited': true,
+      'lastEditedAt': newTimestamp,
+    });
+
+    // Проверяем, было ли это сообщение последним в чате
+    final DocumentSnapshot chatRoomDoc = await _firestore.collection("chat_rooms").doc(chatRoomID).get();
+    final DocumentSnapshot messageDoc = await messageRef.get();
+
+    if (chatRoomDoc.exists && (chatRoomDoc.data() as Map).containsKey('lastMessageTimestamp')) {
+      if ((chatRoomDoc.get('lastMessageTimestamp') as Timestamp).millisecondsSinceEpoch == (messageDoc.get('timestamp') as Timestamp).millisecondsSinceEpoch) {
+        await _firestore.collection("chat_rooms").doc(chatRoomID).update({
+          'lastMessage': newMessage,
+        });
+      }
+    }
+  }
+
+  Future<void> deleteMessage(String chatRoomID, String messageID) async {
+    const String deletedMessage = 'Сообщение удалено';
+    final DocumentReference messageRef = _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages")
+        .doc(messageID);
+
+    // Обновляем текст сообщения на "удалено"
+    await messageRef.update({
+      'message': deletedMessage,
+      'isEdited': true,
+    });
+
+    final DocumentSnapshot chatRoomDoc = await _firestore.collection("chat_rooms").doc(chatRoomID).get();
+    final DocumentSnapshot messageDoc = await messageRef.get();
+
+    if (chatRoomDoc.exists && (chatRoomDoc.data() as Map).containsKey('lastMessageTimestamp')) {
+      if ((chatRoomDoc.get('lastMessageTimestamp') as Timestamp).millisecondsSinceEpoch == (messageDoc.get('timestamp') as Timestamp).millisecondsSinceEpoch) {
+        await _firestore.collection("chat_rooms").doc(chatRoomID).update({
+          'lastMessage': deletedMessage,
+        });
+      }
+    }
+  }
+
 }
+

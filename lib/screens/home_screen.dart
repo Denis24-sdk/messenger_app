@@ -14,15 +14,28 @@ class HomeScreen extends StatelessWidget {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   void signOut(BuildContext context) async {
-    final authService = ChatService();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
     try {
-      await authService.signOut();
+      await _chatService.updateUserStatus(false);
+
+      await _auth.signOut();
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
       );
+    } finally {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
