@@ -194,5 +194,30 @@ class ChatService {
     }
   }
 
+
+  // для очистки чата
+  Future<void> clearChatHistory(String chatRoomID) async {
+    final CollectionReference messagesRef = _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages");
+
+    // Получаем все документы и удаляем их с помощью batch write
+    final messagesSnapshot = await messagesRef.get();
+    final WriteBatch batch = _firestore.batch();
+
+    for (var doc in messagesSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+
+    // Очищаем метаданные в самом документе чата
+    await _firestore.collection("chat_rooms").doc(chatRoomID).update({
+      'lastMessage': 'Чат очищен',
+      'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
 }
 

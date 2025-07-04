@@ -172,6 +172,34 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _confirmClearChat(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text("Очистить чат?"),
+          content: const Text("Вся история сообщений в этом чате будет удалена безвозвратно."),
+          actions: <Widget>[
+            TextButton(
+              child: const Text("Отмена"),
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+            ),
+            TextButton(
+              child: const Text("Очистить", style: TextStyle(color: Colors.red)),
+              onPressed: () {
+                _chatService.clearChatHistory(_chatRoomID);
+                Navigator.of(context).pop();
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
   Widget _buildReplyContext() {
     if (_replyingTo == null) return const SizedBox.shrink();
     return Container(
@@ -206,6 +234,7 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -226,6 +255,21 @@ class _ChatScreenState extends State<ChatScreen> {
             );
           },
         ),
+        actions: [
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              if (value == 'clear_chat') {
+                _confirmClearChat(context);
+              }
+            },
+            itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+              const PopupMenuItem<String>(
+                value: 'clear_chat',
+                child: Text('Очистить чат'),
+              ),
+            ],
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -237,6 +281,7 @@ class _ChatScreenState extends State<ChatScreen> {
       ),
     );
   }
+
 
   Widget _buildMessageList() {
     return StreamBuilder<QuerySnapshot>(

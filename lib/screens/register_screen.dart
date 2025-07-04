@@ -59,8 +59,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       await _firestore.collection("Users").doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
         'email': emailController.text.trim(),
-        'username': username,
+        'username': usernameController.text.trim(),
+        'isOnline': true,
+        'last_seen': Timestamp.now(),
       });
+
 
     } catch (e) {
       String errorMessage = "Произошла ошибка.";
@@ -83,9 +86,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       }
     } finally {
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
+        setState(() { _isLoading = false; });
       }
     }
   }
