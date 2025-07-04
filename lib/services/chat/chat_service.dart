@@ -27,7 +27,11 @@ class ChatService {
   }
 
   // При отправке сообщения обновляем метаданные чата.
-  Future<void> sendMessage(String receiverID, String message) async {
+  Future<void> sendMessage(
+      String receiverID,
+      String message,
+      {String? replyToMessage, String? replyToSenderName}
+      ) async {
     final String currentUserID = _auth.currentUser!.uid;
     final String currentUserEmail = _auth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
@@ -38,22 +42,20 @@ class ChatService {
       receiverID: receiverID,
       message: message,
       timestamp: timestamp,
+      replyToMessage: replyToMessage,
+      replyToSender: replyToSenderName,
     );
 
     List<String> ids = [currentUserID, receiverID];
     ids.sort();
     String chatRoomID = ids.join('_');
 
-    // Обновляем lastMessage и timestamp для сортировки и превью.
-    await _firestore.collection("chat_rooms").doc(chatRoomID).set(
-      {
-        'members': ids,
-        'lastMessage': message,
-        'lastMessageSenderId': currentUserID,
-        'lastMessageTimestamp': timestamp,
-      },
-      SetOptions(merge: true),
-    );
+    await _firestore.collection("chat_rooms").doc(chatRoomID).set({
+      'members': ids,
+      'lastMessage': message,
+      'lastMessageSenderId': currentUserID,
+      'lastMessageTimestamp': timestamp,
+    }, SetOptions(merge: true));
 
     await _firestore
         .collection("chat_rooms")
@@ -61,6 +63,7 @@ class ChatService {
         .collection("messages")
         .add(newMessage.toMap());
   }
+
 
   Stream<QuerySnapshot> getMessages(String userID, String otherUserID) {
     List<String> ids = [userID, otherUserID];

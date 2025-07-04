@@ -9,6 +9,8 @@ class Message {
   final bool isRead;
   final bool isEdited;
   final Timestamp? lastEditedAt;
+  final String? replyToMessage;
+  final String? replyToSender;
 
   Message({
     required this.senderID,
@@ -19,6 +21,8 @@ class Message {
     this.isRead = false,
     this.isEdited = false,
     this.lastEditedAt,
+    this.replyToMessage,
+    this.replyToSender,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,6 +35,8 @@ class Message {
       'isRead': isRead,
       'isEdited': isEdited,
       'lastEditedAt': lastEditedAt,
+      'replyToMessage': replyToMessage,
+      'replyToSender': replyToSender,
     };
   }
 }
