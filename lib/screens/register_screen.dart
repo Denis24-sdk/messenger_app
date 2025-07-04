@@ -7,7 +7,6 @@ import 'package:glassmorphism/glassmorphism.dart';
 
 class RegisterScreen extends StatefulWidget {
   final void Function()? onTap;
-
   const RegisterScreen({super.key, required this.onTap});
 
   @override
@@ -23,48 +22,71 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Метод для регистрации
-  void register() async {
-    // Показываем индикатор загрузки
-    showDialog(
-      context: context,
-      builder: (context) =>
-      const Center(
-        child: CircularProgressIndicator(),
-      ),
-    );
+  bool _isLoading = false;
 
-    // Проверяем, совпадают ли пароли
-    if (passwordController.text != confirmPasswordController.text) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Пароли не совпадают!")),
-      );
-      return; // Прерываем выполнение
-    }
+  void register() async {
+    if (_isLoading) return;
+
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
-      // Прячем индикатор
-      if (mounted) Navigator.pop(context);
+      if (passwordController.text != confirmPasswordController.text) {
+        throw Exception("Пароли не совпадают!");
+      }
 
-      // Пытаемся создать пользователя
-      UserCredential userCredential = await _auth
-          .createUserWithEmailAndPassword(
-        email: emailController.text,
+      final username = usernameController.text.trim();
+      if (username.isEmpty) {
+        throw Exception("Логин не может быть пустым");
+      }
+
+      final existingUser = await _firestore
+          .collection('Users')
+          .where('username', isEqualTo: username)
+          .limit(1)
+          .get();
+
+      if (existingUser.docs.isNotEmpty) {
+        throw Exception("Этот логин уже занят");
+      }
+
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
+        email: emailController.text.trim(),
         password: passwordController.text,
       );
 
-      // После создания пользователя, создаем для него документ в Firestore
       await _firestore.collection("Users").doc(userCredential.user!.uid).set({
         'uid': userCredential.user!.uid,
-        'email': emailController.text,
-        'username': usernameController.text,
+        'email': emailController.text.trim(),
+        'username': username,
       });
-    } on FirebaseAuthException catch (e) {
-      Navigator.pop(context);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message ?? "Произошла ошибка")),
-      );
+
+    } catch (e) {
+      String errorMessage = "Произошла ошибка.";
+      if (e is FirebaseAuthException) {
+        if (e.code == 'email-already-in-use') {
+          errorMessage = 'Этот email уже зарегистрирован.';
+        } else if (e.code == 'weak-password') {
+          errorMessage = 'Пароль слишком слабый.';
+        } else if (e.code == 'invalid-email') {
+          errorMessage = 'Некорректный формат email.';
+        }
+      } else if (e is Exception) {
+        errorMessage = e.toString().replaceFirst('Exception: ', '');
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -105,7 +127,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                   HSLColor.fromColor(Colors.white).withAlpha(0.1).toColor(),
                 ],
               ),
-              // Содержимое контейнера для регистрации
               child: SingleChildScrollView(
                 child: Padding(
                   padding: const EdgeInsets.all(25.0),
@@ -124,14 +145,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       Text(
                         "Заполните поля, чтобы начать",
                         style: TextStyle(
-                          fontSize: 16, // И этот
+                          fontSize: 16,
                           color: Colors.grey[800],
                         ),
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 30),
-
-                      // Поля ввода
                       MyTextField(
                         hintText: "Логин",
                         obscureText: false,
@@ -156,15 +175,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: confirmPasswordController,
                       ),
                       const SizedBox(height: 30),
-
-                      // Кнопка регистрации
                       MyButton(
                         text: "Зарегистрироваться",
                         onTap: register,
+                        child: _isLoading
+                            ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 3,
+                          ),
+                        )
+                            : null,
                       ),
                       const SizedBox(height: 20),
-
-                      // Ссылка на вход
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
