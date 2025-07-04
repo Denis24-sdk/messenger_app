@@ -64,31 +64,49 @@ class _ChatScreenState extends State<ChatScreen> {
     });
   }
 
-  void sendMessage() async {
-    if (_messageController.text.isNotEmpty) {
-      _typingTimer?.cancel();
-      _chatService.updateTypingStatus(_chatRoomID, false);
-
-      final replyData = _replyingTo;
-      _cancelReply();
-
-      await _chatService.sendMessage(
-        widget.receiverID,
-        _messageController.text,
-        replyToMessage: replyData?['message'],
-        replyToSenderName: replyData?['senderName'],
-      );
-      _messageController.clear();
-    }
-  }
-
   void scrollDown() {
-    if (_scrollController.hasClients) {
+    if (!_scrollController.hasClients) return;
+
+    final double threshold = 50.0;
+    final bool isAtBottom = _scrollController.position.maxScrollExtent - _scrollController.position.pixels <= threshold;
+
+    if (isAtBottom) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
+    }
+  }
+
+
+  void sendMessage() async {
+    if (_messageController.text.isEmpty) return;
+
+    _typingTimer?.cancel();
+    _chatService.updateTypingStatus(_chatRoomID, false);
+
+    final replyData = _replyingTo;
+    _cancelReply();
+
+    final String messageText = _messageController.text;
+    _messageController.clear();
+
+    try {
+      await _chatService.sendMessage(
+        widget.receiverID,
+        messageText,
+        replyToMessage: replyData?['message'],
+        replyToSenderName: replyData?['senderName'],
+      );
+      // Никакого вызова scrollDown() или forceScrollDown() здесь нет.
+
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Ошибка отправки: ${e.toString()}")),
+        );
+      }
     }
   }
 
@@ -224,22 +242,41 @@ class _ChatScreenState extends State<ChatScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getMessages(_auth.currentUser!.uid, widget.receiverID),
       builder: (context, snapshot) {
-        if (snapshot.hasError) return const Text("Ошибка загрузки");
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (snapshot.hasError) {
+          return const Text("Ошибка загрузки");
+        }
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             _chatService.markMessagesAsRead(_chatRoomID, widget.receiverID);
-            scrollDown();
           }
         });
-        return ListView(
+
+        final messages = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>?;
+          return data != null && data['timestamp'] != null;
+        }).toList();
+
+        return ListView.builder(
           controller: _scrollController,
+          reverse: true,
           padding: const EdgeInsets.all(8),
-          children: snapshot.data!.docs.map((doc) => _buildMessageItem(doc)).toList(),
+          itemCount: messages.length,
+          itemBuilder: (context, index) {
+            final reversedIndex = messages.length - 1 - index;
+            final doc = messages[reversedIndex];
+            return _buildMessageItem(doc);
+          },
         );
       },
     );
   }
+
+
+
 
   Widget _buildTypingIndicator() {
     return StreamBuilder<DocumentSnapshot>(

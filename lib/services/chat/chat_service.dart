@@ -69,12 +69,13 @@ class ChatService {
     List<String> ids = [userID, otherUserID];
     ids.sort();
     String chatRoomID = ids.join('_');
+
     return _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
         .collection("messages")
         .orderBy("timestamp", descending: false)
-        .snapshots();
+        .snapshots(includeMetadataChanges: false); 
   }
 
   // Обновляем статус набора текста в чате

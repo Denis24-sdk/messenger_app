@@ -96,7 +96,10 @@ class HomeScreen extends StatelessWidget {
     String otherUserID = members.firstWhere((id) =>
     id != _auth.currentUser!.uid);
 
-    // Асинхронно получаем данные собеседника.
+    Timestamp? ts = chatData['lastMessageTimestamp'] as Timestamp?;
+    String formattedTime = ts != null ? DateFormat('HH:mm').format(ts.toDate()) : "";
+
+      // Асинхронно получаем данные собеседника.
     return FutureBuilder<DocumentSnapshot>(
       future: _firestore.collection('Users').doc(otherUserID).get(),
       builder: (context, userSnapshot) {

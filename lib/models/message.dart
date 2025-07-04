@@ -5,7 +5,7 @@ class Message {
   final String senderEmail;
   final String receiverID;
   final String message;
-  final Timestamp timestamp;
+  final dynamic timestamp;
   final bool isRead;
   final bool isEdited;
   final Timestamp? lastEditedAt;
