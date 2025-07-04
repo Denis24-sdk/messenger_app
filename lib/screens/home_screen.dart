@@ -74,13 +74,14 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Строим элемент списка чата.
+
   Widget _buildChatListItem(DocumentSnapshot chatDoc, BuildContext context) {
     Map<String, dynamic> chatData = chatDoc.data() as Map<String, dynamic>;
 
     // Определяем ID собеседника.
     List<dynamic> members = chatData['members'];
-    String otherUserID = members.firstWhere((id) => id != _auth.currentUser!.uid);
+    String otherUserID = members.firstWhere((id) =>
+    id != _auth.currentUser!.uid);
 
     // Асинхронно получаем данные собеседника.
     return FutureBuilder<DocumentSnapshot>(
@@ -88,30 +89,53 @@ class HomeScreen extends StatelessWidget {
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const ListTile();
 
-        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<String, dynamic>;
+        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<
+            String,
+            dynamic>;
 
         String lastMessage = chatData['lastMessage'] ?? '';
-        String prefix = (chatData['lastMessageSenderId'] == _auth.currentUser!.uid) ? "Вы: " : "";
+        String prefix = (chatData['lastMessageSenderId'] ==
+            _auth.currentUser!.uid) ? "Вы: " : "";
         Timestamp ts = chatData['lastMessageTimestamp'];
         String formattedTime = DateFormat('HH:mm').format(ts.toDate());
 
+        bool isOnline = userData['isOnline'] ?? false;
+
         return ListTile(
-          leading: const CircleAvatar(child: Icon(Icons.person)),
-          title: Text(userData['username'] ?? userData['email']),
-          subtitle: Text(
-            '$prefix$lastMessage',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          leading: Stack(
+            children: [
+              const CircleAvatar(radius: 24, child: Icon(Icons.person)),
+              if (isOnline)
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: Colors.green,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Theme
+                          .of(context)
+                          .scaffoldBackgroundColor, width: 2),
+                    ),
+                  ),
+                ),
+            ],
           ),
+          title: Text(userData['username'] ?? userData['email']),
+          subtitle: Text('$prefix$lastMessage', maxLines: 1,
+              overflow: TextOverflow.ellipsis),
           trailing: Text(formattedTime),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChatScreen(
-                  receiverEmail: userData["username"] ?? userData["email"],
-                  receiverID: userData["uid"],
-                ),
+                builder: (context) =>
+                    ChatScreen(
+                      receiverEmail: userData["username"] ?? userData["email"],
+                      receiverID: userData["uid"],
+                    ),
               ),
             );
           },

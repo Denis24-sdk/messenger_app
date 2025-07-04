@@ -91,4 +91,24 @@ class ChatService {
   Stream<DocumentSnapshot> getChatRoomStream(String chatRoomID) {
     return _firestore.collection('chat_rooms').doc(chatRoomID).snapshots();
   }
+
+
+
+  // Обновляем статус пользователя и время последнего визита
+  Future<void> updateUserStatus(bool isOnline) async {
+    // Убеждаемся, что пользователь залогинен
+    if (_auth.currentUser == null) return;
+
+    final String currentUserID = _auth.currentUser!.uid;
+
+    await _firestore.collection("Users").doc(currentUserID).update({
+      'isOnline': isOnline,
+      'last_seen': Timestamp.now(),
+    });
+  }
+
+//Стрим для получения данных конкретного пользователя (нужен для UI)
+  Stream<DocumentSnapshot> getUserStream(String userID) {
+    return _firestore.collection('Users').doc(userID).snapshots();
+  }
 }

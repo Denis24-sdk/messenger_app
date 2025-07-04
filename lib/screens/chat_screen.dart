@@ -85,11 +85,40 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.receiverEmail)),
+      appBar: AppBar(
+        // title в StreamBuilder, чтобы он обновлялся
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: _chatService.getUserStream(widget.receiverID),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData) return Text(widget.receiverEmail);
+
+            var userData = snapshot.data!.data() as Map<String, dynamic>;
+            bool isOnline = userData['isOnline'] ?? false;
+            String statusText;
+
+            if (isOnline) {
+              statusText = "в сети";
+            } else {
+              Timestamp? lastSeen = userData['last_seen'];
+              statusText = "не в сети";
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(widget.receiverEmail),
+                Text(
+                  statusText,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
       body: Column(
         children: [
           Expanded(child: _buildMessageList()),
-          // Виджет для отображения статуса "печатает..."
           _buildTypingIndicator(),
           _buildUserInput(),
         ],
