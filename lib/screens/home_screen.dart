@@ -1,4 +1,6 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:messenger_flutter/screens/search_screen.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +11,7 @@ class HomeScreen extends StatelessWidget {
 
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   void signOut(BuildContext context) async {
     final authService = ChatService();
@@ -34,7 +37,7 @@ class HomeScreen extends StatelessWidget {
             onPressed: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => SearchScreen()),
+                MaterialPageRoute(builder: (context) => const SearchScreen()),
               );
             },
             icon: const Icon(Icons.search),
@@ -50,48 +53,68 @@ class HomeScreen extends StatelessWidget {
   }
 
   Widget _buildChatList() {
-    return StreamBuilder(
+    return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getChatRoomsStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return const Text("Ошибка");
+          return const Center(child: Text("Ошибка загрузки"));
         }
-
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: Text("Загрузка..."));
+          return const Center(child: CircularProgressIndicator());
         }
-
-        if (snapshot.data == null || snapshot.data!.isEmpty) {
-          return const Center(
-            child: Text("У вас пока нет чатов."),
-          );
+        if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
+          return const Center(child: Text("Нет активных чатов."));
         }
-
         return ListView(
-          children: snapshot.data!
-              .map<Widget>((userData) => _buildUserListItem(userData, context))
+          children: snapshot.data!.docs
+              .map<Widget>((doc) => _buildChatListItem(doc, context))
               .toList(),
         );
       },
     );
   }
 
-  Widget _buildUserListItem(
-      Map<String, dynamic> userData, BuildContext context) {
-    return ListTile(
-      leading: const CircleAvatar(
-        child: Icon(Icons.person),
-      ),
-      title: Text(userData["username"] ?? userData["email"]),
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              receiverEmail: userData["username"] ?? userData["email"],
-              receiverID: userData["uid"],
-            ),
+  // Строим элемент списка чата.
+  Widget _buildChatListItem(DocumentSnapshot chatDoc, BuildContext context) {
+    Map<String, dynamic> chatData = chatDoc.data() as Map<String, dynamic>;
+
+    // Определяем ID собеседника.
+    List<dynamic> members = chatData['members'];
+    String otherUserID = members.firstWhere((id) => id != _auth.currentUser!.uid);
+
+    // Асинхронно получаем данные собеседника.
+    return FutureBuilder<DocumentSnapshot>(
+      future: _firestore.collection('Users').doc(otherUserID).get(),
+      builder: (context, userSnapshot) {
+        if (!userSnapshot.hasData) return const ListTile();
+
+        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<String, dynamic>;
+
+        String lastMessage = chatData['lastMessage'] ?? '';
+        String prefix = (chatData['lastMessageSenderId'] == _auth.currentUser!.uid) ? "Вы: " : "";
+        Timestamp ts = chatData['lastMessageTimestamp'];
+        String formattedTime = DateFormat('HH:mm').format(ts.toDate());
+
+        return ListTile(
+          leading: const CircleAvatar(child: Icon(Icons.person)),
+          title: Text(userData['username'] ?? userData['email']),
+          subtitle: Text(
+            '$prefix$lastMessage',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
           ),
+          trailing: Text(formattedTime),
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => ChatScreen(
+                  receiverEmail: userData["username"] ?? userData["email"],
+                  receiverID: userData["uid"],
+                ),
+              ),
+            );
+          },
         );
       },
     );
