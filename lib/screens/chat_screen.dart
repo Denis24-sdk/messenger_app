@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
@@ -25,27 +26,43 @@ class _ChatScreenState extends State<ChatScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
 
+  Timer? _typingTimer;
+  String _chatRoomID = "";
+
   @override
   void initState() {
     super.initState();
-    // Добавляем listener, чтобы скроллить при появлении клавиатуры
-    WidgetsBinding.instance.addPostFrameCallback((_) => scrollDown());
+    // Определяем ID чата один раз при инициализации
+    List<String> ids = [_auth.currentUser!.uid, widget.receiverID];
+    ids.sort();
+    _chatRoomID = ids.join('_');
+
+    // Слушатель для поля ввода
+    _messageController.addListener(_handleTyping);
+  }
+
+  // Логика индикатора набора текста
+  void _handleTyping() {
+    if (_typingTimer == null || !_typingTimer!.isActive) {
+      _chatService.updateTypingStatus(_chatRoomID, true);
+    }
+    _typingTimer?.cancel();
+    _typingTimer = Timer(const Duration(milliseconds: 1500), () {
+      _chatService.updateTypingStatus(_chatRoomID, false);
+    });
   }
 
   void sendMessage() async {
     if (_messageController.text.isNotEmpty) {
-      // Сохраняем текст перед очисткой контроллера
-      String message = _messageController.text;
-      _messageController.clear();
+      _typingTimer?.cancel();
+      _chatService.updateTypingStatus(_chatRoomID, false);
 
-      await _chatService.sendMessage(widget.receiverID, message);
-      // Скролл теперь не нужен здесь, StreamBuilder сам обновится и вызовет скролл
+      await _chatService.sendMessage(widget.receiverID, _messageController.text);
+      _messageController.clear();
     }
   }
 
-  // Безопасный метод скролла
   void scrollDown() {
-    // Проверяем, что контроллер прикреплен к списку
     if (_scrollController.hasClients) {
       _scrollController.animateTo(
         _scrollController.position.maxScrollExtent,
@@ -56,14 +73,24 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   @override
+  void dispose() {
+    _messageController.removeListener(_handleTyping);
+    _messageController.dispose();
+    _typingTimer?.cancel();
+    // Отправляем финальный статус "не печатает" при выходе с экрана
+    _chatService.updateTypingStatus(_chatRoomID, false);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.receiverEmail)),
       body: Column(
         children: [
-          Expanded(
-            child: _buildMessageList(),
-          ),
+          Expanded(child: _buildMessageList()),
+          // Виджет для отображения статуса "печатает..."
+          _buildTypingIndicator(),
           _buildUserInput(),
         ],
       ),
@@ -71,47 +98,62 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildMessageList() {
-    String senderID = _auth.currentUser!.uid;
     return StreamBuilder(
-      stream: _chatService.getMessages(senderID, widget.receiverID),
+      stream: _chatService.getMessages(_auth.currentUser!.uid, widget.receiverID),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Text("Ошибка загрузки сообщений");
-        }
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: Text("Загрузка..."));
-        }
-
-        // Вызываем скролл после того, как фрейм с новым списком был отрисован
+        if (snapshot.hasError) return const Text("Ошибка загрузки");
+        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
         WidgetsBinding.instance.addPostFrameCallback((_) => scrollDown());
-
         return ListView(
           controller: _scrollController,
           padding: const EdgeInsets.all(8),
-          children: snapshot.data!.docs
-              .map((doc) => _buildMessageItem(doc))
-              .toList(),
+          children: snapshot.data!.docs.map((doc) => _buildMessageItem(doc)).toList(),
         );
       },
     );
   }
 
+  Widget _buildTypingIndicator() {
+    return StreamBuilder<DocumentSnapshot>(
+      // Слушаем изменения в документе чата
+      stream: _chatService.getChatRoomStream(_chatRoomID),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.data() == null) {
+          return const SizedBox.shrink();
+        }
+
+        var data = snapshot.data!.data() as Map<String, dynamic>;
+        var typingStatus = data['typingStatus'] as Map<String, dynamic>?;
+
+        // Проверяем, печатает ли собеседник
+        if (typingStatus != null && typingStatus[widget.receiverID] == true) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(
+              children: [
+                Text(
+                  "Печатает...",
+                  style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic),
+                ),
+              ],
+            ),
+          );
+        }
+        // Если не печатает, возвращаем пустой виджет
+        return const SizedBox.shrink();
+      },
+    );
+  }
+
+  // ... остальные виджеты (_buildMessageItem, _buildUserInput) без изменений ...
   Widget _buildMessageItem(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
-    var alignment =
-    isCurrentUser ? Alignment.centerRight : Alignment.centerLeft;
     return Container(
-      alignment: alignment,
-      child: Column(
-        crossAxisAlignment:
-        isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
-          ChatBubble(
-            message: data["message"],
-            isCurrentUser: isCurrentUser,
-          ),
-        ],
+      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+      child: ChatBubble(
+        message: data["message"],
+        isCurrentUser: isCurrentUser,
       ),
     );
   }
@@ -129,10 +171,7 @@ class _ChatScreenState extends State<ChatScreen> {
             ),
           ),
           Container(
-            decoration: const BoxDecoration(
-              color: Colors.green,
-              shape: BoxShape.circle,
-            ),
+            decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
             margin: const EdgeInsets.only(left: 8),
             child: IconButton(
               onPressed: sendMessage,

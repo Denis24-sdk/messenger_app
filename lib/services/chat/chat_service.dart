@@ -73,4 +73,22 @@ class ChatService {
         .orderBy("timestamp", descending: false)
         .snapshots();
   }
+
+  // Обновляем статус набора текста в чате
+  Future<void> updateTypingStatus(String chatRoomID, bool isTyping) async {
+    final String currentUserID = _auth.currentUser!.uid;
+    await _firestore.collection("chat_rooms").doc(chatRoomID).set(
+      {
+        'typingStatus': {
+          currentUserID: isTyping,
+        }
+      },
+      SetOptions(merge: true),
+    );
+  }
+
+// Стрим для получения данных самого чата
+  Stream<DocumentSnapshot> getChatRoomStream(String chatRoomID) {
+    return _firestore.collection('chat_rooms').doc(chatRoomID).snapshots();
+  }
 }
