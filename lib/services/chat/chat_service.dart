@@ -111,4 +111,25 @@ class ChatService {
   Stream<DocumentSnapshot> getUserStream(String userID) {
     return _firestore.collection('Users').doc(userID).snapshots();
   }
+
+
+  // Отмечаем сообщения как прочитанные
+  Future<void> markMessagesAsRead(String chatRoomID, String receiverID) async {
+    // Получаем все непрочитанные сообщения, отправленные собеседником
+    final querySnapshot = await _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .collection("messages")
+        .where('senderID', isEqualTo: receiverID)
+        .where('isRead', isEqualTo: false)
+        .get();
+
+    // Используем WriteBatch для атомарного обновления всех документов
+    final WriteBatch batch = _firestore.batch();
+    for (var doc in querySnapshot.docs) {
+      batch.update(doc.reference, {'isRead': true});
+    }
+
+    await batch.commit();
+  }
 }

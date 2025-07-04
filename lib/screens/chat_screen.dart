@@ -32,12 +32,13 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    // Определяем ID чата один раз при инициализации
     List<String> ids = [_auth.currentUser!.uid, widget.receiverID];
     ids.sort();
     _chatRoomID = ids.join('_');
 
-    // Слушатель для поля ввода
+    // Как только заходим на экран, помечаем сообщения собеседника как прочитанные
+    _chatService.markMessagesAsRead(_chatRoomID, widget.receiverID);
+
     _messageController.addListener(_handleTyping);
   }
 
@@ -174,18 +175,23 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  // ... остальные виджеты (_buildMessageItem, _buildUserInput) без изменений ...
   Widget _buildMessageItem(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
     bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
+
+    // Получаем статус прочтения (если поля нет, считаем что не прочитано)
+    bool isRead = data['isRead'] ?? false;
+
     return Container(
       alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       child: ChatBubble(
         message: data["message"],
         isCurrentUser: isCurrentUser,
+        isRead: isRead,
       ),
     );
   }
+
 
   Widget _buildUserInput() {
     return Padding(
