@@ -27,7 +27,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(
           seedColor: Colors.deepPurple,
           brightness: Brightness.light,
-          surface: Color(0xFF0E0E0E),
+          surface: Colors.white,
           onSurface: Colors.black,
         ),
         useMaterial3: true,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:messenger_flutter/screens/search_screen.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:messenger_flutter/screens/chat_screen.dart';
@@ -9,9 +10,7 @@ class HomeScreen extends StatelessWidget {
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
-  // МЕТОД ВЫХОДА
   void signOut(BuildContext context) async {
-
     final authService = ChatService();
     try {
       await authService.signOut();
@@ -22,43 +21,52 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Главная"),
+        title: const Text("Чаты"),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.grey,
         elevation: 0,
         actions: [
-          // Кнопка выхода
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => SearchScreen()),
+              );
+            },
+            icon: const Icon(Icons.search),
+          ),
           IconButton(
             onPressed: () => signOut(context),
             icon: const Icon(Icons.logout),
           )
         ],
       ),
-      body: _buildUserList(),
+      body: _buildChatList(),
     );
   }
 
-  // Строим список пользователей
-  Widget _buildUserList() {
+  Widget _buildChatList() {
     return StreamBuilder(
-      stream: _chatService.getUsersStream(),
+      stream: _chatService.getChatRoomsStream(),
       builder: (context, snapshot) {
-        // Обработка ошибок
         if (snapshot.hasError) {
           return const Text("Ошибка");
         }
 
-        // Загрузка
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Text("Загрузка...");
+          return const Center(child: Text("Загрузка..."));
         }
 
-        // Получаем список пользователей и строим ListView
+        if (snapshot.data == null || snapshot.data!.isEmpty) {
+          return const Center(
+            child: Text("У вас пока нет чатов."),
+          );
+        }
+
         return ListView(
           children: snapshot.data!
               .map<Widget>((userData) => _buildUserListItem(userData, context))
@@ -68,35 +76,24 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Строим отдельный элемент списка
   Widget _buildUserListItem(
       Map<String, dynamic> userData, BuildContext context) {
-    // отфильтровываем текущего пользователя
-    if (userData["email"] != _auth.currentUser!.email) {
-      return ListTile(
-
-        leading: const CircleAvatar(
-          // Пока что просто иконка, но это место для будущей аватарке
-          child: Icon(Icons.person),
-        ),
-
-        // Используем оператор '??', чтобы показать email, если логина вдруг нет (для старых аккаунтов)  (для отладки, временно)
-        title: Text(userData["username"] ?? userData["email"]),
-        onTap: () {
-          // перейти в чат при нажатии
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                receiverEmail: userData["username"] ?? userData["email"],
-                receiverID: userData["uid"],
-              ),
+    return ListTile(
+      leading: const CircleAvatar(
+        child: Icon(Icons.person),
+      ),
+      title: Text(userData["username"] ?? userData["email"]),
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ChatScreen(
+              receiverEmail: userData["username"] ?? userData["email"],
+              receiverID: userData["uid"],
             ),
-          );
-        },
-      );
-    } else {
-      return Container();
-    }
+          ),
+        );
+      },
+    );
   }
 }
