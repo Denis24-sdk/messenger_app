@@ -21,20 +21,24 @@ class _AccountScreenState extends State<AccountScreen> {
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   bool _isEditingName = false;
+  bool _isEditingBio = false; // Добавлено состояние редактирования описания
   bool _isUploading = false;
 
   late TextEditingController _nameController;
+  late TextEditingController _bioController; // Контроллер для описания
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController();
+    _bioController = TextEditingController(); // Инициализация контроллера описания
     _loadUserData();
   }
 
   @override
   void dispose() {
     _nameController.dispose();
+    _bioController.dispose(); // Освобождение ресурсов
     super.dispose();
   }
 
@@ -49,6 +53,8 @@ class _AccountScreenState extends State<AccountScreen> {
           setState(() {
             _userData = userDoc.data() as Map<String, dynamic>;
             _nameController.text = _userData?['username'] ?? '';
+            // Загрузка описания из базы данных
+            _bioController.text = _userData?['bio'] ?? '';
           });
         }
       } catch (e) {
@@ -90,6 +96,31 @@ class _AccountScreenState extends State<AccountScreen> {
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Ошибка обновления имени: $e')),
+        );
+      }
+    }
+  }
+
+  // Метод для обновления описания
+  Future<void> _updateBio() async {
+    if (_currentUser != null) {
+      try {
+        await _firestore
+            .collection('Users')
+            .doc(_currentUser!.uid)
+            .update({'bio': _bioController.text.trim()});
+
+        setState(() {
+          _userData?['bio'] = _bioController.text.trim();
+          _isEditingBio = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Описание успешно обновлено')),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Ошибка обновления описания: $e')),
         );
       }
     }
@@ -243,6 +274,11 @@ class _AccountScreenState extends State<AccountScreen> {
           ),
         ),
         const SizedBox(height: 24),
+
+        // Секция с описанием
+        _isEditingBio ? _buildBioEditor() : _buildBioDisplay(),
+        const SizedBox(height: 24),
+
         const Divider(),
         const SizedBox(height: 16),
         ListTile(
@@ -315,6 +351,111 @@ class _AccountScreenState extends State<AccountScreen> {
               _nameController.text = _userData?['username'] ?? '';
             });
           },
+        ),
+      ],
+    );
+  }
+
+  // Виджет для отображения описания
+  Widget _buildBioDisplay() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 16.0),
+          child: Text(
+            'Описание:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const SizedBox(height: 8),
+        GestureDetector(
+          onTap: () {
+            setState(() {
+              _isEditingBio = true;
+            });
+          },
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _userData?['bio']?.isNotEmpty == true
+                        ? _userData!['bio']
+                        : 'Добавьте описание...',
+                    style: TextStyle(
+                      color: _userData?['bio']?.isNotEmpty == true
+                          ? Colors.black
+                          : Colors.grey,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Icon(Icons.edit, size: 18, color: Colors.grey),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // Виджет для редактирования описания
+  Widget _buildBioEditor() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Padding(
+          padding: EdgeInsets.only(left: 16.0),
+          child: Text(
+            'Описание:',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.grey.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: TextField(
+            controller: _bioController,
+            maxLines: 3,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Расскажите о себе...',
+              border: InputBorder.none,
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _isEditingBio = false;
+                  _bioController.text = _userData?['bio'] ?? '';
+                });
+              },
+              child: const Text('Отмена'),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton(
+              onPressed: _updateBio,
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+              ),
+              child: const Text('Сохранить'),
+            ),
+          ],
         ),
       ],
     );
