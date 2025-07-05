@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:messenger_flutter/services/storage/storage_service.dart';
+import 'package:photo_view/photo_view.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -133,6 +134,49 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
 
+  void _openFullScreenAvatar(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: PhotoView(
+                  imageProvider: NetworkImage(imageUrl),
+                  minScale: PhotoViewComputedScale.contained * 0.8,
+                  maxScale: PhotoViewComputedScale.covered * 3,
+                  backgroundDecoration: const BoxDecoration(color: Colors.black),
+                  loadingBuilder: (context, event) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(Icons.broken_image, color: Colors.white, size: 60),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -158,13 +202,18 @@ class _AccountScreenState extends State<AccountScreen> {
         Center(
           child: Stack(
             children: [
-              CircleAvatar(
-                radius: 60,
-                backgroundColor: Colors.grey.shade300,
-                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                child: avatarUrl == null
-                    ? Icon(Icons.person, size: 60, color: Colors.grey.shade800)
+              GestureDetector(
+                onTap: avatarUrl != null && !_isUploading
+                    ? () => _openFullScreenAvatar(context, avatarUrl)
                     : null,
+                child: CircleAvatar(
+                  radius: 60,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                  child: avatarUrl == null
+                      ? Icon(Icons.person, size: 60, color: Colors.grey.shade800)
+                      : null,
+                ),
               ),
               Positioned(
                 bottom: 0,

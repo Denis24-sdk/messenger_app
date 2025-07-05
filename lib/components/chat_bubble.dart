@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
 
 class ChatBubble extends StatelessWidget {
   final String message;
@@ -36,6 +37,7 @@ class ChatBubble extends StatelessWidget {
           onReply();
         }
       },
+      onTap: isImage ? () => _openFullScreenImage(context) : null,
       child: Container(
         decoration: BoxDecoration(
           color: isCurrentUser ? Colors.green : Colors.grey.shade300,
@@ -47,6 +49,57 @@ class ChatBubble extends StatelessWidget {
         child: isImage ? _buildImageContent(context) : _buildTextContent(),
       ),
     );
+  }
+
+
+  void _openFullScreenImage(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              Center(
+                child: PhotoView(
+                  imageProvider: _getImageProvider(),
+                  minScale: PhotoViewComputedScale.contained * 0.8,
+                  maxScale: PhotoViewComputedScale.covered * 3,
+                  backgroundDecoration: const BoxDecoration(color: Colors.black),
+                  loadingBuilder: (context, event) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(Icons.broken_image, color: Colors.white, size: 60),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  ImageProvider _getImageProvider() {
+    if (messageType == 'image_local') {
+      return FileImage(File(message));
+    } else {
+      return NetworkImage(message);
+    }
   }
 
   Widget _buildImageContent(BuildContext context) {
