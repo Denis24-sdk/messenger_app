@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:messenger_flutter/screens/chat_screen.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
 
-
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
 
@@ -22,7 +21,6 @@ class _SearchScreenState extends State<SearchScreen> {
   @override
   void initState() {
     super.initState();
-    // Обновляем состояние при каждом изменении в поле поиска.
     _searchController.addListener(() {
       setState(() {
         _searchQuery = _searchController.text;
@@ -32,7 +30,6 @@ class _SearchScreenState extends State<SearchScreen> {
 
   @override
   void dispose() {
-    // Очищаем контроллер, чтобы избежать утечек памяти.
     _searchController.dispose();
     super.dispose();
   }
@@ -41,21 +38,31 @@ class _SearchScreenState extends State<SearchScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Найти пользователя"),
+        title: MyTextField(
+          controller: _searchController,
+          hintText: "Поиск...",
+          obscureText: false,
+          autofocus: true,
+          textInputAction: TextInputAction.search,
+        ),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.grey,
         elevation: 0,
+        actions: [
+          if (_searchQuery.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                _searchController.clear();
+                setState(() {
+                  _searchQuery = "";
+                });
+              },
+            ),
+        ],
       ),
       body: Column(
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: MyTextField(
-              controller: _searchController,
-              hintText: "Поиск...",
-              obscureText: false,
-            ),
-          ),
           Expanded(
             child: _buildUserList(),
           ),
@@ -72,10 +79,9 @@ class _SearchScreenState extends State<SearchScreen> {
           return const Center(child: Text("Ошибка"));
         }
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: Text("Загрузка..."));
+          return const Center(child: CircularProgressIndicator());
         }
 
-        // Фильтруем полный список пользователей на основе поискового запроса.
         var allUsers = snapshot.data!;
         List<Map<String, dynamic>> filteredUsers = allUsers.where((user) {
           if (user['email'] == _auth.currentUser!.email) {
@@ -93,7 +99,6 @@ class _SearchScreenState extends State<SearchScreen> {
           return const Center(child: Text("Пользователь не найден."));
         }
 
-        // ListView.builder для производительности, особенно на больших списках.
         return ListView.builder(
           itemCount: filteredUsers.length,
           itemBuilder: (context, index) {
@@ -104,14 +109,20 @@ class _SearchScreenState extends State<SearchScreen> {
     );
   }
 
-  Widget _buildUserListItem(
-      Map<String, dynamic> userData, BuildContext context) {
+  Widget _buildUserListItem(Map<String, dynamic> userData, BuildContext context) {
+    final String? avatarUrl = userData['avatarUrl'];
+
     return ListTile(
-      leading: const CircleAvatar(
-        child: Icon(Icons.person),
+      leading: CircleAvatar(
+        radius: 24,
+        backgroundColor: Colors.grey.shade300,
+        backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+        child: avatarUrl == null
+            ? Icon(Icons.person, size: 24, color: Colors.grey.shade800)
+            : null,
       ),
       title: Text(userData["username"] ?? userData["email"]),
-      subtitle: Text(userData["email"]),
+
       onTap: () {
         Navigator.push(
           context,
