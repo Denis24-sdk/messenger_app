@@ -217,12 +217,27 @@ class _ChatScreenState extends State<ChatScreen> {
             var userData = snapshot.data!.data() as Map<String, dynamic>;
             bool isOnline = userData['isOnline'] ?? false;
             String statusText = isOnline ? "в сети" : "не в сети";
-            return Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+            String? avatarUrl = userData['avatarUrl'];
+
+            return Row(
               children: [
-                Text(userData['username'] ?? widget.receiverEmail),
-                Text(statusText,
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                  child: avatarUrl == null
+                      ? Icon(Icons.person, size: 20, color: Colors.grey.shade800)
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(userData['username'] ?? widget.receiverEmail),
+                    Text(statusText,
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                  ],
+                ),
               ],
             );
           },
