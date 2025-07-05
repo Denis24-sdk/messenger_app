@@ -14,7 +14,6 @@ class HomeScreen extends StatelessWidget {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Функция для выхода из аккаунта
   void signOut(BuildContext context) async {
     showDialog(
       context: context,
@@ -40,7 +39,6 @@ class HomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        // Кнопка для перехода на страницу аккаунта
         leading: IconButton(
           onPressed: () {
             Navigator.push(
@@ -74,7 +72,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Строит список чатов
   Widget _buildChatList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getChatRoomsStream(),
@@ -97,7 +94,6 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  // Строит отдельный элемент списка чатов
   Widget _buildChatListItem(DocumentSnapshot chatDoc, BuildContext context) {
     Map<String, dynamic> chatData = chatDoc.data() as Map<String, dynamic>;
 
@@ -109,19 +105,32 @@ class HomeScreen extends StatelessWidget {
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const ListTile();
 
-        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<String, dynamic>;
+        Map<String, dynamic> userData =
+        userSnapshot.data!.data() as Map<String, dynamic>;
 
         String lastMessage = chatData['lastMessage'] ?? '';
-        String prefix = (chatData['lastMessageSenderId'] == _auth.currentUser!.uid) ? "Вы: " : "";
+        String prefix = (chatData['lastMessageSenderId'] == _auth.currentUser!.uid)
+            ? "Вы: "
+            : "";
+
         Timestamp? ts = chatData['lastMessageTimestamp'] as Timestamp?;
-        String formattedTime = ts != null ? DateFormat('HH:mm').format(ts.toDate()) : "";
+        String formattedTime =
+        ts != null ? DateFormat('HH:mm').format(ts.toDate()) : "";
 
         bool isOnline = userData['isOnline'] ?? false;
+        String? avatarUrl = userData['avatarUrl'];
 
         return ListTile(
           leading: Stack(
             children: [
-              const CircleAvatar(radius: 24, child: Icon(Icons.person)),
+              CircleAvatar(
+                radius: 24,
+                backgroundColor: Colors.grey.shade300,
+                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl == null
+                    ? Icon(Icons.person, color: Colors.grey.shade800)
+                    : null,
+              ),
               if (isOnline)
                 Positioned(
                   bottom: 0,
@@ -132,14 +141,17 @@ class HomeScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.green,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
+                      border: Border.all(
+                          color: Theme.of(context).scaffoldBackgroundColor,
+                          width: 2),
                     ),
                   ),
                 ),
             ],
           ),
           title: Text(userData['username'] ?? userData['email']),
-          subtitle: Text('$prefix$lastMessage', maxLines: 1, overflow: TextOverflow.ellipsis),
+          subtitle: Text('$prefix$lastMessage',
+              maxLines: 1, overflow: TextOverflow.ellipsis),
           trailing: Text(formattedTime),
           onTap: () {
             Navigator.push(

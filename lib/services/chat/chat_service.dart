@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:messenger_flutter/models/message.dart';
+import 'package:messenger_flutter/services/storage/storage_service.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final StorageService _storageService = StorageService();
 
   Stream<List<Map<String, dynamic>>> getUsersStream() {
     return _firestore.collection("Users").snapshots().map((snapshot) {
@@ -12,7 +15,6 @@ class ChatService {
     });
   }
 
-  // Стрим чатов для главного экрана. Сортировка по последнему сообщению.
   Stream<QuerySnapshot> getChatRoomsStream() {
     final String currentUserID = _auth.currentUser!.uid;
     return _firestore
@@ -22,16 +24,8 @@ class ChatService {
         .snapshots();
   }
 
-  Future<void> signOut() async {
-    return await _auth.signOut();
-  }
-
-  // При отправке сообщения обновляем метаданные чата.
-  Future<void> sendMessage(
-      String receiverID,
-      String message,
-      {String? replyToMessage, String? replyToSenderName}
-      ) async {
+  Future<void> sendMessage(String receiverID, String message,
+      {String? replyToMessage, String? replyToSenderName}) async {
     final String currentUserID = _auth.currentUser!.uid;
     final String currentUserEmail = _auth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
@@ -41,6 +35,7 @@ class ChatService {
       senderEmail: currentUserEmail,
       receiverID: receiverID,
       message: message,
+      type: 'text',
       timestamp: timestamp,
       replyToMessage: replyToMessage,
       replyToSender: replyToSenderName,
@@ -64,6 +59,78 @@ class ChatService {
         .add(newMessage.toMap());
   }
 
+  Future<DocumentReference> sendLocalImageMessage(String receiverID, File imageFile, {String? fileId}) async {
+    final String currentUserID = _auth.currentUser!.uid;
+    final String currentUserEmail = _auth.currentUser!.email!;
+    final Timestamp timestamp = Timestamp.now();
+
+    Message newMessage = Message(
+      senderID: currentUserID,
+      senderEmail: currentUserEmail,
+      receiverID: receiverID,
+      message: imageFile.path,
+      fileId: fileId, // Передаем fileId
+      type: 'image_local',
+      timestamp: timestamp,
+    );
+
+    List<String> ids = [currentUserID, receiverID];
+    ids.sort();
+    String chatRoomID = ids.join('_');
+
+    await _firestore.collection("chat_rooms").doc(chatRoomID).set({
+      'members': ids,
+      'lastMessage': "📷 Изображение",
+      'lastMessageSenderId': currentUserID,
+      'lastMessageTimestamp': timestamp,
+    }, SetOptions(merge: true));
+
+    return await _firestore.collection("chat_rooms").doc(chatRoomID).collection("messages").add(newMessage.toMap());
+  }
+
+  Future<void> updateImageMessageUrl(DocumentReference messageRef, String newUrl, String newFileId) async {
+    await messageRef.update({
+      'message': newUrl,
+      'fileId': newFileId, // Обновляем fileId
+      'type': 'image',
+    });
+  }
+
+  Future<void> deleteMessage(String chatRoomID, String messageID) async {
+    DocumentReference messageRef = _firestore.collection("chat_rooms").doc(chatRoomID).collection("messages").doc(messageID);
+    DocumentSnapshot doc = await messageRef.get();
+
+    if (doc.exists) {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      // Если у сообщения есть fileId, удаляем его с хостинга
+      if (data['type'] == 'image' && data['fileId'] != null) {
+        await _storageService.deleteFile(data['fileId']);
+      }
+    }
+
+    await messageRef.update({'message': 'Сообщение удалено', 'type': 'text', 'isEdited': true, 'fileId': null});
+  }
+
+  Future<void> clearChatHistory(String chatRoomID) async {
+    final CollectionReference messagesRef = _firestore.collection("chat_rooms").doc(chatRoomID).collection("messages");
+    final messagesSnapshot = await messagesRef.get();
+    final WriteBatch batch = _firestore.batch();
+
+    for (var doc in messagesSnapshot.docs) {
+      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+      // Удаляем каждый файл картинки перед удалением документа
+      if (data['type'] == 'image' && data['fileId'] != null) {
+        await _storageService.deleteFile(data['fileId']);
+      }
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+    await _firestore.collection("chat_rooms").doc(chatRoomID).update({
+      'lastMessage': 'Чат очищен', 'lastMessageTimestamp': FieldValue.serverTimestamp(),
+    });
+  }
+
 
   Stream<QuerySnapshot> getMessages(String userID, String otherUserID) {
     List<String> ids = [userID, otherUserID];
@@ -74,52 +141,24 @@ class ChatService {
         .collection("chat_rooms")
         .doc(chatRoomID)
         .collection("messages")
-        .orderBy("timestamp", descending: false)
-        .snapshots(includeMetadataChanges: false); 
+        .orderBy("timestamp", descending: true)
+        .snapshots();
   }
 
-  // Обновляем статус набора текста в чате
-  Future<void> updateTypingStatus(String chatRoomID, bool isTyping) async {
-    final String currentUserID = _auth.currentUser!.uid;
-    await _firestore.collection("chat_rooms").doc(chatRoomID).set(
-      {
-        'typingStatus': {
-          currentUserID: isTyping,
-        }
-      },
-      SetOptions(merge: true),
-    );
-  }
-
-// Стрим для получения данных самого чата
-  Stream<DocumentSnapshot> getChatRoomStream(String chatRoomID) {
-    return _firestore.collection('chat_rooms').doc(chatRoomID).snapshots();
-  }
-
-
-
-  // Обновляем статус пользователя и время последнего визита
   Future<void> updateUserStatus(bool isOnline) async {
-    // Убеждаемся, что пользователь залогинен
     if (_auth.currentUser == null) return;
-
     final String currentUserID = _auth.currentUser!.uid;
-
     await _firestore.collection("Users").doc(currentUserID).update({
       'isOnline': isOnline,
       'last_seen': Timestamp.now(),
     });
   }
 
-//Стрим для получения данных конкретного пользователя (нужен для UI)
   Stream<DocumentSnapshot> getUserStream(String userID) {
     return _firestore.collection('Users').doc(userID).snapshots();
   }
 
-
-  // Отмечаем сообщения как прочитанные
   Future<void> markMessagesAsRead(String chatRoomID, String receiverID) async {
-    // Получаем все непрочитанные сообщения, отправленные собеседником
     final querySnapshot = await _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
@@ -128,96 +167,29 @@ class ChatService {
         .where('isRead', isEqualTo: false)
         .get();
 
-    // Используем WriteBatch для атомарного обновления всех документов
     final WriteBatch batch = _firestore.batch();
     for (var doc in querySnapshot.docs) {
       batch.update(doc.reference, {'isRead': true});
     }
-
     await batch.commit();
   }
 
-
-
-  // для редактирования и удаления
   Future<void> editMessage(String chatRoomID, String messageID, String newMessage) async {
-    final Timestamp newTimestamp = Timestamp.now();
-    final DocumentReference messageRef = _firestore
-        .collection("chat_rooms")
-        .doc(chatRoomID)
-        .collection("messages")
-        .doc(messageID);
-
-    // Обновляем само сообщение
-    await messageRef.update({
-      'message': newMessage,
-      'isEdited': true,
-      'lastEditedAt': newTimestamp,
+    await _firestore.collection("chat_rooms").doc(chatRoomID).collection("messages").doc(messageID).update({
+      'message': newMessage, 'isEdited': true,
     });
-
-    // Проверяем, было ли это сообщение последним в чате
-    final DocumentSnapshot chatRoomDoc = await _firestore.collection("chat_rooms").doc(chatRoomID).get();
-    final DocumentSnapshot messageDoc = await messageRef.get();
-
-    if (chatRoomDoc.exists && (chatRoomDoc.data() as Map).containsKey('lastMessageTimestamp')) {
-      if ((chatRoomDoc.get('lastMessageTimestamp') as Timestamp).millisecondsSinceEpoch == (messageDoc.get('timestamp') as Timestamp).millisecondsSinceEpoch) {
-        await _firestore.collection("chat_rooms").doc(chatRoomID).update({
-          'lastMessage': newMessage,
-        });
-      }
-    }
-  }
-
-  Future<void> deleteMessage(String chatRoomID, String messageID) async {
-    const String deletedMessage = 'Сообщение удалено';
-    final DocumentReference messageRef = _firestore
-        .collection("chat_rooms")
-        .doc(chatRoomID)
-        .collection("messages")
-        .doc(messageID);
-
-    // Обновляем текст сообщения на "удалено"
-    await messageRef.update({
-      'message': deletedMessage,
-      'isEdited': true,
-    });
-
-    final DocumentSnapshot chatRoomDoc = await _firestore.collection("chat_rooms").doc(chatRoomID).get();
-    final DocumentSnapshot messageDoc = await messageRef.get();
-
-    if (chatRoomDoc.exists && (chatRoomDoc.data() as Map).containsKey('lastMessageTimestamp')) {
-      if ((chatRoomDoc.get('lastMessageTimestamp') as Timestamp).millisecondsSinceEpoch == (messageDoc.get('timestamp') as Timestamp).millisecondsSinceEpoch) {
-        await _firestore.collection("chat_rooms").doc(chatRoomID).update({
-          'lastMessage': deletedMessage,
-        });
-      }
-    }
   }
 
 
-  // для очистки чата
-  Future<void> clearChatHistory(String chatRoomID) async {
-    final CollectionReference messagesRef = _firestore
-        .collection("chat_rooms")
-        .doc(chatRoomID)
-        .collection("messages");
+  Future<void> updateTypingStatus(String chatRoomID, bool isTyping) async {
+    final String currentUserID = _auth.currentUser!.uid;
+    await _firestore.collection("chat_rooms").doc(chatRoomID).set(
+      {'typingStatus': {currentUserID: isTyping}}, SetOptions(merge: true),
+    );
+  }
 
-    // Получаем все документы и удаляем их с помощью batch write
-    final messagesSnapshot = await messagesRef.get();
-    final WriteBatch batch = _firestore.batch();
-
-    for (var doc in messagesSnapshot.docs) {
-      batch.delete(doc.reference);
-    }
-
-    await batch.commit();
-
-    // Очищаем метаданные в самом документе чата
-    await _firestore.collection("chat_rooms").doc(chatRoomID).update({
-      'lastMessage': 'Чат очищен',
-      'lastMessageTimestamp': FieldValue.serverTimestamp(),
-    });
+  Stream<DocumentSnapshot> getChatRoomStream(String chatRoomID) {
+    return _firestore.collection('chat_rooms').doc(chatRoomID).snapshots();
   }
 
 }
-

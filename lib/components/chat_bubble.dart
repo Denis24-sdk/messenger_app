@@ -1,158 +1,155 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 
 class ChatBubble extends StatelessWidget {
   final String message;
-  final String? replyToMessage;
-  final String? replyToSender;
+  final String messageType;
   final bool isCurrentUser;
   final bool isRead;
   final bool isEdited;
-  final void Function()? onLongPress;
-  final void Function()? onReply;
+  final String? replyToMessage;
+  final String? replyToSender;
+  final VoidCallback onLongPress;
+  final VoidCallback onReply;
 
   const ChatBubble({
     super.key,
     required this.message,
-    this.replyToMessage,
-    this.replyToSender,
+    required this.messageType,
     required this.isCurrentUser,
     required this.isRead,
-    required this.isEdited,
-    this.onLongPress,
-    this.onReply,
+    this.isEdited = false,
+    this.replyToMessage,
+    this.replyToSender,
+    required this.onLongPress,
+    required this.onReply,
   });
 
-  Widget _buildReplyWidget(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: isCurrentUser
-            ? Colors.white.withOpacity(0.2)
-            : Colors.black.withOpacity(0.05),
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(12),
-          topRight: Radius.circular(12),
+  @override
+  Widget build(BuildContext context) {
+    bool isImage = messageType.startsWith('image');
+
+    return GestureDetector(
+      onLongPress: onLongPress,
+      onHorizontalDragUpdate: (details) {
+        if (isCurrentUser ? details.delta.dx < -10 : details.delta.dx > 10) {
+          onReply();
+        }
+      },
+      child: Container(
+        decoration: BoxDecoration(
+          color: isCurrentUser ? Colors.green : Colors.grey.shade300,
+          borderRadius: BorderRadius.circular(12),
         ),
-      ),
-      child: IntrinsicHeight(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-                width: 3,
-                color: isCurrentUser ? Colors.white : Colors.green),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(
-                    replyToSender ?? "...",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: isCurrentUser ? Colors.white : Colors.green,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    replyToMessage ?? "...",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: isCurrentUser
-                          ? Colors.white.withOpacity(0.9)
-                          : Colors.black.withOpacity(0.8),
-                      fontSize: 13,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+        padding: isImage
+            ? const EdgeInsets.all(3)
+            : const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+        child: isImage ? _buildImageContent(context) : _buildTextContent(),
       ),
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Icon? statusIcon;
-    final bool isDeleted = message == "Сообщение удалено";
-    if (isCurrentUser && !isDeleted) {
-      statusIcon = Icon(
-        isRead ? Icons.done_all : Icons.done,
-        size: 16,
-        color: isRead ? Colors.blue : Colors.grey[600],
+  Widget _buildImageContent(BuildContext context) {
+    Widget imageWidget;
+    if (messageType == 'image_local') {
+      imageWidget = Image.file(File(message), fit: BoxFit.cover);
+    }
+    else {
+      imageWidget = Image.network(
+        message,
+        fit: BoxFit.cover,
+        loadingBuilder: (context, child, loadingProgress) {
+          if (loadingProgress == null) return child;
+          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+        },
+        errorBuilder: (context, error, stackTrace) =>
+        const Icon(Icons.error, color: Colors.red),
       );
     }
-    final messageStyle = TextStyle(
-      color: isCurrentUser ? Colors.white : Colors.black,
-      fontStyle: isDeleted ? FontStyle.italic : FontStyle.normal,
-    );
 
-    final bubbleContent = GestureDetector(
-      onLongPress:
-      isCurrentUser && !isDeleted ? onLongPress : null,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isCurrentUser ? Colors.green[400] : Colors.grey[300],
-          borderRadius: BorderRadius.circular(12),
+    return Container(
+      constraints: BoxConstraints(
+        maxWidth: MediaQuery.of(context).size.width * 0.6,
+        maxHeight: MediaQuery.of(context).size.width * 0.8,
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: imageWidget, // Просто показываем картинку, без Stack и индикатора
+      ),
+    );
+  }
+
+  Widget _buildTextContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (replyToMessage != null && replyToSender != null) _buildReplyBox(),
+        Text(
+          message,
+          style: TextStyle(color: isCurrentUser ? Colors.white : Colors.black),
         ),
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        constraints: BoxConstraints(
-          maxWidth: MediaQuery.of(context).size.width * 0.75,
+        const SizedBox(height: 5),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (isEdited)
+              Text(
+                "изм. ",
+                style: TextStyle(
+                  fontSize: 10,
+                  color: (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
+                ),
+              ),
+            if (isCurrentUser)
+              Icon(
+                isRead ? Icons.done_all : Icons.done,
+                size: 16,
+                color: isRead
+                    ? Colors.blue.shade300
+                    : (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
+              ),
+          ],
+        )
+      ],
+    );
+  }
+
+  Widget _buildReplyBox() {
+    final isImageReply = replyToMessage!.startsWith('http') || replyToMessage! == '📷 Изображение';
+    return IntrinsicWidth(
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.2),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(8),
+            topRight: Radius.circular(8),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            if (replyToMessage != null) _buildReplyWidget(context),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
-              child: Wrap(
-                alignment: WrapAlignment.end,
-                crossAxisAlignment: WrapCrossAlignment.end,
-                spacing: 8.0,
-                children: [
-                  Text(message, style: messageStyle),
-                  if (isEdited && !isDeleted)
-                    Text(
-                      "отредактировано",
-                      style: TextStyle(
-                        fontSize: 10,
-                        color: (isCurrentUser ? Colors.white : Colors.black)
-                            .withOpacity(0.7),
-                      ),
-                    ),
-                  if (statusIcon != null)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 2.0),
-                      child: statusIcon,
-                    ),
-                ],
+            Text(
+              replyToSender!,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: isCurrentUser ? Colors.white70 : Colors.green,
+                fontSize: 12,
+              ),
+            ),
+            Text(
+              isImageReply ? "📷 Изображение" : replyToMessage!,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: isCurrentUser ? Colors.white : Colors.black87,
+                fontSize: 12,
               ),
             ),
           ],
         ),
       ),
-    );
-
-    return Dismissible(
-      key: key!,
-      direction: DismissDirection.startToEnd,
-      background: Container(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        alignment: Alignment.centerLeft,
-        child: const Icon(Icons.reply, color: Colors.grey),
-      ),
-      confirmDismiss: (direction) async {
-        onReply?.call();
-        return false;
-      },
-      child: bubbleContent,
     );
   }
 }

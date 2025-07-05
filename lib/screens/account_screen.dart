@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:messenger_flutter/services/storage/storage_service.dart';
 
 class AccountScreen extends StatefulWidget {
   const AccountScreen({super.key});
@@ -12,11 +14,13 @@ class AccountScreen extends StatefulWidget {
 class _AccountScreenState extends State<AccountScreen> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final StorageService _storageService = StorageService();
 
   User? _currentUser;
   Map<String, dynamic>? _userData;
   bool _isLoading = true;
   bool _isEditingName = false;
+  bool _isUploading = false;
 
   late TextEditingController _nameController;
 
@@ -33,36 +37,32 @@ class _AccountScreenState extends State<AccountScreen> {
     super.dispose();
   }
 
-  // Загружает данные пользователя из Firestore
   Future<void> _loadUserData() async {
-    setState(() {
-      _isLoading = true;
-    });
-
+    setState(() => _isLoading = true);
     _currentUser = _auth.currentUser;
     if (_currentUser != null) {
       try {
         DocumentSnapshot userDoc =
         await _firestore.collection('Users').doc(_currentUser!.uid).get();
-        if (userDoc.exists) {
+        if (mounted && userDoc.exists) {
           setState(() {
             _userData = userDoc.data() as Map<String, dynamic>;
             _nameController.text = _userData?['username'] ?? '';
           });
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка загрузки данных: $e')),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Ошибка загрузки данных: $e')),
+          );
+        }
       }
     }
-
-    setState(() {
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
   }
 
-  // Обновляет имя пользователя в Firestore
   Future<void> _updateUsername() async {
     if (_nameController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -94,6 +94,45 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  Future<void> _uploadAvatar() async {
+    File? image = await _storageService.pickImage();
+    if (image == null) return;
+
+    if (mounted) setState(() => _isUploading = true);
+
+    if (_userData?['avatarFileId'] != null) {
+      await _storageService.deleteFile(_userData!['avatarFileId']);
+    }
+
+    Map<String, String>? uploadResult = await _storageService.uploadFile(image);
+
+    if (uploadResult != null) {
+      String downloadUrl = uploadResult['url']!;
+      String fileId = uploadResult['fileId']!;
+
+      await _firestore.collection('Users').doc(_currentUser!.uid).update({
+        'avatarUrl': downloadUrl,
+        'avatarFileId': fileId,
+      });
+
+      if (mounted) {
+        setState(() {
+          _userData?['avatarUrl'] = downloadUrl;
+          _userData?['avatarFileId'] = fileId;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Аватар успешно обновлен!')));
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ошибка загрузки аватара.')));
+      }
+    }
+    if (mounted) {
+      setState(() => _isUploading = false);
+    }
+  }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -111,15 +150,21 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Widget _buildUserProfile() {
+    final avatarUrl = _userData?['avatarUrl'];
+
     return ListView(
       padding: const EdgeInsets.all(16.0),
       children: [
         Center(
           child: Stack(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 60,
-                child: Icon(Icons.person, size: 60), // Заглушка
+                backgroundColor: Colors.grey.shade300,
+                backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                child: avatarUrl == null
+                    ? Icon(Icons.person, size: 60, color: Colors.grey.shade800)
+                    : null,
               ),
               Positioned(
                 bottom: 0,
@@ -128,23 +173,19 @@ class _AccountScreenState extends State<AccountScreen> {
                   backgroundColor: Theme.of(context).primaryColor,
                   child: IconButton(
                     icon: const Icon(Icons.camera_alt, color: Colors.white),
-                    // TODO: Реализовать загрузку/редактирование аватара
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Редактирование аватара в разработке')),
-                      );
-                    },
+                    onPressed: _isUploading ? null : _uploadAvatar,
                   ),
                 ),
               ),
+              if (_isUploading)
+                const Positioned.fill(
+                  child: Center(child: CircularProgressIndicator()),
+                )
             ],
           ),
         ),
         const SizedBox(height: 24),
-
-        // Блок редактирования имени
         _isEditingName ? _buildNameEditor() : _buildNameDisplay(),
-
         const SizedBox(height: 8),
         Center(
           child: Text(
@@ -155,8 +196,6 @@ class _AccountScreenState extends State<AccountScreen> {
         const SizedBox(height: 24),
         const Divider(),
         const SizedBox(height: 16),
-
-        //  Кнопки
         ListTile(
           leading: const Icon(Icons.settings),
           title: const Text('Настройки'),
@@ -179,7 +218,6 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  // Виджет для отображения имени
   Widget _buildNameDisplay() {
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
@@ -200,7 +238,6 @@ class _AccountScreenState extends State<AccountScreen> {
     );
   }
 
-  // Виджет для редактирования имени
   Widget _buildNameEditor() {
     return Row(
       children: [

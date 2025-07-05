@@ -1,10 +1,12 @@
 import 'dart:async';
-import 'package:flutter/material.dart';
-import 'package:messenger_flutter/components/my_textfield.dart';
-import 'package:messenger_flutter/services/chat/chat_service.dart';
-import 'package:messenger_flutter/components/chat_bubble.dart';
+import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:messenger_flutter/components/chat_bubble.dart';
+import 'package:messenger_flutter/components/my_textfield.dart';
+import 'package:messenger_flutter/services/chat/chat_service.dart';
+import 'package:messenger_flutter/services/storage/storage_service.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverEmail;
@@ -23,6 +25,7 @@ class ChatScreen extends StatefulWidget {
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ChatService _chatService = ChatService();
+  final StorageService _storageService = StorageService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final ScrollController _scrollController = ScrollController();
 
@@ -39,43 +42,37 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.addListener(_handleTyping);
   }
 
-  void _handleTyping() {
-    if (_typingTimer == null || !_typingTimer!.isActive) {
-      _chatService.updateTypingStatus(_chatRoomID, true);
-    }
+  @override
+  void dispose() {
+    _messageController.removeListener(_handleTyping);
+    _messageController.dispose();
     _typingTimer?.cancel();
-    _typingTimer = Timer(const Duration(milliseconds: 1500), () {
+    if (_chatRoomID.isNotEmpty) {
       _chatService.updateTypingStatus(_chatRoomID, false);
-    });
+    }
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  void _setReplyTo(Map<String, dynamic> messageData, String senderName) {
-    setState(() {
-      _replyingTo = {
-        'message': messageData['message'],
-        'senderName': senderName,
-      };
-    });
-  }
+  void _sendImage() async {
+    File? imageFile = await _storageService.pickImage();
+    if (imageFile == null) return;
 
-  void _cancelReply() {
-    setState(() {
-      _replyingTo = null;
-    });
-  }
+    _cancelReply();
 
-  void scrollDown() {
-    if (!_scrollController.hasClients) return;
+    DocumentReference messageRef = await _chatService.sendLocalImageMessage(widget.receiverID, imageFile);
 
-    final double threshold = 50.0;
-    final bool isAtBottom = _scrollController.position.maxScrollExtent - _scrollController.position.pixels <= threshold;
+    Map<String, String>? uploadResult = await _storageService.uploadFile(imageFile);
 
-    if (isAtBottom) {
-      _scrollController.animateTo(
-        _scrollController.position.maxScrollExtent,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeOut,
-      );
+    if (uploadResult != null) {
+      String imageUrl = uploadResult['url']!;
+      String fileId = uploadResult['fileId']!;
+      await _chatService.updateImageMessageUrl(messageRef, imageUrl, fileId);
+    } else {
+      await messageRef.delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось загрузить изображение.')));
+      }
     }
   }
 
@@ -92,33 +89,76 @@ class _ChatScreenState extends State<ChatScreen> {
     final String messageText = _messageController.text;
     _messageController.clear();
 
-    try {
-      await _chatService.sendMessage(
-        widget.receiverID,
-        messageText,
-        replyToMessage: replyData?['message'],
-        replyToSenderName: replyData?['senderName'],
-      );
-      // Никакого вызова scrollDown() или forceScrollDown() здесь нет.
-
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Ошибка отправки: ${e.toString()}")),
-        );
-      }
-    }
+    await _chatService.sendMessage(
+      widget.receiverID,
+      messageText,
+      replyToMessage: replyData?['message'],
+      replyToSenderName: replyData?['senderName'],
+    );
   }
 
-  @override
-  void dispose() {
-    _messageController.removeListener(_handleTyping);
-    _messageController.dispose();
-    _typingTimer?.cancel();
-    if (_chatRoomID.isNotEmpty) {
-      _chatService.updateTypingStatus(_chatRoomID, false);
+  void _handleTyping() {
+    if (_typingTimer?.isActive ?? false) _typingTimer!.cancel();
+    if (_messageController.text.isNotEmpty) {
+      _chatService.updateTypingStatus(_chatRoomID, true);
     }
-    super.dispose();
+    _typingTimer = Timer(const Duration(milliseconds: 1500), () {
+      _chatService.updateTypingStatus(_chatRoomID, false);
+    });
+  }
+
+  void _setReplyTo(Map<String, dynamic> messageData, String senderName) {
+    final message = (messageData['type'] ?? 'text').startsWith('image')
+        ? '📷 Изображение'
+        : messageData['message'];
+
+    setState(() {
+      _replyingTo = {
+        'message': message,
+        'senderName': senderName,
+      };
+    });
+  }
+
+  void _cancelReply() {
+    setState(() => _replyingTo = null);
+  }
+
+  void _showMessageOptions(String messageID, Map<String, dynamic> data) {
+    final String message = data['message'];
+    final String type = data['type'] ?? 'text';
+    bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              if (type == 'text' && isCurrentUser)
+                ListTile(
+                  leading: const Icon(Icons.edit),
+                  title: const Text('Редактировать'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _showEditDialog(messageID, message);
+                  },
+                ),
+              if (isCurrentUser)
+                ListTile(
+                  leading: const Icon(Icons.delete, color: Colors.red),
+                  title: const Text('Удалить', style: TextStyle(color: Colors.red)),
+                  onTap: () {
+                    _chatService.deleteMessage(_chatRoomID, messageID);
+                    Navigator.pop(context);
+                  },
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _showEditDialog(String messageID, String currentMessage) {
@@ -142,50 +182,15 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  void _showMessageOptions(String messageID, String message) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        return SafeArea(
-          child: Wrap(
-            children: <Widget>[
-              ListTile(
-                leading: const Icon(Icons.edit),
-                title: const Text('Редактировать'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _showEditDialog(messageID, message);
-                },
-              ),
-              ListTile(
-                leading: const Icon(Icons.delete),
-                title: const Text('Удалить'),
-                onTap: () {
-                  _chatService.deleteMessage(_chatRoomID, messageID);
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-
   void _confirmClearChat(BuildContext context) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text("Очистить чат?"),
-          content: const Text("Вся история сообщений в этом чате будет удалена безвозвратно."),
+          content: const Text("Вся история сообщений будет удалена."),
           actions: <Widget>[
-            TextButton(
-              child: const Text("Отмена"),
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-            ),
+            TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text("Отмена")),
             TextButton(
               child: const Text("Очистить", style: TextStyle(color: Colors.red)),
               onPressed: () {
@@ -199,42 +204,6 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-
-  Widget _buildReplyContext() {
-    if (_replyingTo == null) return const SizedBox.shrink();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.grey.withOpacity(0.15),
-        border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.3))),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.reply, color: Colors.grey, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "Ответ на: ${_replyingTo!['senderName']}",
-                  style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-                Text(_replyingTo!['message'], maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close),
-            onPressed: _cancelReply,
-          ),
-        ],
-      ),
-    );
-  }
-
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -242,15 +211,18 @@ class _ChatScreenState extends State<ChatScreen> {
         title: StreamBuilder<DocumentSnapshot>(
           stream: _chatService.getUserStream(widget.receiverID),
           builder: (context, snapshot) {
-            if (!snapshot.hasData) return Text(widget.receiverEmail);
+            if (!snapshot.hasData || snapshot.data?.data() == null) {
+              return Text(widget.receiverEmail);
+            }
             var userData = snapshot.data!.data() as Map<String, dynamic>;
             bool isOnline = userData['isOnline'] ?? false;
             String statusText = isOnline ? "в сети" : "не в сети";
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(widget.receiverEmail),
-                Text(statusText, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                Text(userData['username'] ?? widget.receiverEmail),
+                Text(statusText,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
               ],
             );
           },
@@ -258,15 +230,11 @@ class _ChatScreenState extends State<ChatScreen> {
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
-              if (value == 'clear_chat') {
-                _confirmClearChat(context);
-              }
+              if (value == 'clear_chat') _confirmClearChat(context);
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
               const PopupMenuItem<String>(
-                value: 'clear_chat',
-                child: Text('Очистить чат'),
-              ),
+                  value: 'clear_chat', child: Text('Очистить чат')),
             ],
           ),
         ],
@@ -282,37 +250,26 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-
   Widget _buildMessageList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getMessages(_auth.currentUser!.uid, widget.receiverID),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Text("Ошибка загрузки");
-        }
+        if (snapshot.hasError) return const Center(child: Text("Ошибка загрузки"));
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            _chatService.markMessagesAsRead(_chatRoomID, widget.receiverID);
-          }
+          if (mounted) _chatService.markMessagesAsRead(_chatRoomID, widget.receiverID);
         });
-
-        final messages = snapshot.data!.docs.where((doc) {
-          final data = doc.data() as Map<String, dynamic>?;
-          return data != null && data['timestamp'] != null;
-        }).toList();
 
         return ListView.builder(
           controller: _scrollController,
           reverse: true,
           padding: const EdgeInsets.all(8),
-          itemCount: messages.length,
+          itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
-            final reversedIndex = messages.length - 1 - index;
-            final doc = messages[reversedIndex];
+            final doc = snapshot.data!.docs[index];
             return _buildMessageItem(doc);
           },
         );
@@ -320,8 +277,28 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  Widget _buildMessageItem(DocumentSnapshot doc) {
+    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
+    bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
+    final String senderName = isCurrentUser ? "Вы" : widget.receiverEmail;
 
-
+    return Container(
+      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: ChatBubble(
+        key: ValueKey(doc.id),
+        message: data["message"],
+        messageType: data["type"] ?? 'text',
+        replyToMessage: data["replyToMessage"],
+        replyToSender: data["replyToSender"],
+        isCurrentUser: isCurrentUser,
+        isRead: data['isRead'] ?? false,
+        isEdited: data['isEdited'] ?? false,
+        onLongPress: () => _showMessageOptions(doc.id, data),
+        onReply: () => _setReplyTo(data, senderName),
+      ),
+    );
+  }
 
   Widget _buildTypingIndicator() {
     return StreamBuilder<DocumentSnapshot>(
@@ -329,11 +306,14 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.data() == null) return const SizedBox.shrink();
         var data = snapshot.data!.data() as Map<String, dynamic>;
-        var typingStatus = data['typingStatus'] as Map<String, dynamic>?;
-        if (typingStatus != null && typingStatus[widget.receiverID] == true) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            child: Row(children: [Text("Печатает...", style: TextStyle(color: Colors.grey, fontStyle: FontStyle.italic))]),
+        var typingStatus = data['typingStatus'] as Map<String, dynamic>? ?? {};
+        if (typingStatus[widget.receiverID] == true) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
+            child: Row(children: [
+              Text("Печатает...",
+                  style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic))
+            ]),
           );
         }
         return const SizedBox.shrink();
@@ -341,37 +321,45 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
-  Widget _buildMessageItem(DocumentSnapshot doc) {
-    Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;
-    bool isRead = data['isRead'] ?? false;
-    bool isEdited = data['isEdited'] ?? false;
-    final String senderName = isCurrentUser ? "Вы" : widget.receiverEmail;
+  Widget _buildReplyContext() {
+    if (_replyingTo == null) return const SizedBox.shrink();
 
-    // Контейнер для позиционирования и вертикальных отступов между сообщениями.
     return Container(
-      alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-      padding: const EdgeInsets.symmetric(vertical: 2.5),
-      child: ChatBubble(
-        key: ValueKey(doc.id),
-        message: data["message"],
-        replyToMessage: data["replyToMessage"],
-        replyToSender: data["replyToSender"],
-        isCurrentUser: isCurrentUser,
-        isRead: isRead,
-        isEdited: isEdited,
-        onLongPress: () => _showMessageOptions(doc.id, data["message"]),
-        onReply: () => _setReplyTo(data, senderName),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1)),
+      child: Row(
+        children: [
+          const Icon(Icons.reply, color: Colors.green, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Ответ на: ${_replyingTo!['senderName']}",
+                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green)),
+                Text(_replyingTo!['message'], maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: _cancelReply,
+          ),
+        ],
       ),
     );
   }
 
-
   Widget _buildUserInput() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 20, left: 8, right: 8, top: 8),
+      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
       child: Row(
         children: [
+          IconButton(
+            icon: const Icon(Icons.add_photo_alternate_outlined),
+            onPressed: _sendImage,
+          ),
           Expanded(
             child: MyTextField(
               controller: _messageController,
