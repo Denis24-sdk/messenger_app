@@ -7,6 +7,7 @@ import 'package:messenger_flutter/components/chat_bubble.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:messenger_flutter/services/storage/storage_service.dart';
+import 'package:photo_view/photo_view.dart';
 
 class ChatScreen extends StatefulWidget {
   final String receiverEmail;
@@ -32,6 +33,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _typingTimer;
   String _chatRoomID = "";
   Map<String, dynamic>? _replyingTo;
+  Map<String, dynamic>? _receiverData; // Данные о собеседнике
 
   @override
   void initState() {
@@ -40,6 +42,21 @@ class _ChatScreenState extends State<ChatScreen> {
     ids.sort();
     _chatRoomID = ids.join('_');
     _messageController.addListener(_handleTyping);
+    _loadReceiverData(); // Загружаем данные о собеседнике
+  }
+
+  // Загрузка данных о собеседнике
+  Future<void> _loadReceiverData() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('Users')
+        .doc(widget.receiverID)
+        .get();
+
+    if (doc.exists) {
+      setState(() {
+        _receiverData = doc.data()!;
+      });
+    }
   }
 
   @override
@@ -52,6 +69,119 @@ class _ChatScreenState extends State<ChatScreen> {
     }
     _scrollController.dispose();
     super.dispose();
+  }
+
+  // Открытие профиля собеседника
+  void _openReceiverProfile(BuildContext context) {
+    if (_receiverData == null) return;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Профиль"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              GestureDetector(
+                onTap: () => _openFullScreenAvatar(context, _receiverData!['avatarUrl']),
+                child: CircleAvatar(
+                  radius: 50,
+                  backgroundColor: Colors.grey.shade300,
+                  backgroundImage: _receiverData!['avatarUrl'] != null
+                      ? NetworkImage(_receiverData!['avatarUrl'])
+                      : null,
+                  child: _receiverData!['avatarUrl'] == null
+                      ? Icon(Icons.person, size: 50, color: Colors.grey.shade800)
+                      : null,
+                ),
+              ),
+              const SizedBox(height: 20),
+              Text(
+                _receiverData!['username'] ?? widget.receiverEmail,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                widget.receiverEmail,
+                style: TextStyle(color: Colors.grey.shade600),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              if (_receiverData!['bio'] != null && _receiverData!['bio'].isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: Text(
+                    _receiverData!['bio'],
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 16, color: Colors.grey.shade700),
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Text(
+                _receiverData!['isOnline'] == true ? "В сети" : "Не в сети",
+                style: TextStyle(
+                  color: _receiverData!['isOnline'] == true ? Colors.green : Colors.grey,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Закрыть"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Открытие аватара на весь экран
+  void _openFullScreenAvatar(BuildContext context, String? imageUrl) {
+    if (imageUrl == null) return;
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          body: Stack(
+            children: [
+              Positioned.fill(
+                child: PhotoView(
+                  imageProvider: NetworkImage(imageUrl),
+                  minScale: PhotoViewComputedScale.contained * 0.8,
+                  maxScale: PhotoViewComputedScale.covered * 3,
+                  backgroundDecoration: const BoxDecoration(color: Colors.black),
+                  loadingBuilder: (context, event) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
+                  ),
+                  errorBuilder: (context, error, stackTrace) => const Center(
+                    child: Icon(Icons.broken_image, color: Colors.white, size: 60),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: MediaQuery.of(context).padding.top + 16,
+                left: 16,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _sendImage() async {
@@ -75,7 +205,6 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
   }
-
 
   void sendMessage() async {
     if (_messageController.text.isEmpty) return;
@@ -208,39 +337,47 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: StreamBuilder<DocumentSnapshot>(
-          stream: _chatService.getUserStream(widget.receiverID),
-          builder: (context, snapshot) {
-            if (!snapshot.hasData || snapshot.data?.data() == null) {
-              return Text(widget.receiverEmail);
-            }
-            var userData = snapshot.data!.data() as Map<String, dynamic>;
-            bool isOnline = userData['isOnline'] ?? false;
-            String statusText = isOnline ? "в сети" : "не в сети";
-            String? avatarUrl = userData['avatarUrl'];
+        title: GestureDetector( // Добавляем обработчик нажатия на весь AppBar
+          onTap: () => _openReceiverProfile(context),
+          child: StreamBuilder<DocumentSnapshot>(
+            stream: _chatService.getUserStream(widget.receiverID),
+            builder: (context, snapshot) {
+              if (!snapshot.hasData || snapshot.data?.data() == null) {
+                return Text(widget.receiverEmail);
+              }
+              var userData = snapshot.data!.data() as Map<String, dynamic>;
+              bool isOnline = userData['isOnline'] ?? false;
+              String statusText = isOnline ? "в сети" : "не в сети";
+              String? avatarUrl = userData['avatarUrl'];
 
-            return Row(
-              children: [
-                CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.grey.shade300,
-                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl == null
-                      ? Icon(Icons.person, size: 20, color: Colors.grey.shade800)
-                      : null,
-                ),
-                const SizedBox(width: 12),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(userData['username'] ?? widget.receiverEmail),
-                    Text(statusText,
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
-                  ],
-                ),
-              ],
-            );
-          },
+              // Сохраняем данные о собеседнике
+              if (_receiverData == null) {
+                _receiverData = userData;
+              }
+
+              return Row(
+                children: [
+                  CircleAvatar(
+                    radius: 20,
+                    backgroundColor: Colors.grey.shade300,
+                    backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                    child: avatarUrl == null
+                        ? Icon(Icons.person, size: 20, color: Colors.grey.shade800)
+                        : null,
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(userData['username'] ?? widget.receiverEmail),
+                      Text(statusText,
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.normal)),
+                    ],
+                  ),
+                ],
+              );
+            },
+          ),
         ),
         actions: [
           PopupMenuButton<String>(
