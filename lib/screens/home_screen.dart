@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:messenger_flutter/screens/account_screen.dart';
 import 'package:messenger_flutter/screens/search_screen.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -13,6 +14,7 @@ class HomeScreen extends StatelessWidget {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
+  // Функция для выхода из аккаунта
   void signOut(BuildContext context) async {
     showDialog(
       context: context,
@@ -22,9 +24,7 @@ class HomeScreen extends StatelessWidget {
 
     try {
       await _chatService.updateUserStatus(false);
-
       await _auth.signOut();
-
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(e.toString())),
@@ -36,11 +36,20 @@ class HomeScreen extends StatelessWidget {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        // Кнопка для перехода на страницу аккаунта
+        leading: IconButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const AccountScreen()),
+            );
+          },
+          icon: const Icon(Icons.person),
+        ),
         title: const Text("Чаты"),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.grey,
@@ -65,6 +74,7 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  // Строит список чатов
   Widget _buildChatList() {
     return StreamBuilder<QuerySnapshot>(
       stream: _chatService.getChatRoomsStream(),
@@ -87,33 +97,24 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-
+  // Строит отдельный элемент списка чатов
   Widget _buildChatListItem(DocumentSnapshot chatDoc, BuildContext context) {
     Map<String, dynamic> chatData = chatDoc.data() as Map<String, dynamic>;
 
-    // Определяем ID собеседника.
     List<dynamic> members = chatData['members'];
-    String otherUserID = members.firstWhere((id) =>
-    id != _auth.currentUser!.uid);
+    String otherUserID = members.firstWhere((id) => id != _auth.currentUser!.uid);
 
-    Timestamp? ts = chatData['lastMessageTimestamp'] as Timestamp?;
-    String formattedTime = ts != null ? DateFormat('HH:mm').format(ts.toDate()) : "";
-
-      // Асинхронно получаем данные собеседника.
     return FutureBuilder<DocumentSnapshot>(
       future: _firestore.collection('Users').doc(otherUserID).get(),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData) return const ListTile();
 
-        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<
-            String,
-            dynamic>;
+        Map<String, dynamic> userData = userSnapshot.data!.data() as Map<String, dynamic>;
 
         String lastMessage = chatData['lastMessage'] ?? '';
-        String prefix = (chatData['lastMessageSenderId'] ==
-            _auth.currentUser!.uid) ? "Вы: " : "";
-        Timestamp ts = chatData['lastMessageTimestamp'];
-        String formattedTime = DateFormat('HH:mm').format(ts.toDate());
+        String prefix = (chatData['lastMessageSenderId'] == _auth.currentUser!.uid) ? "Вы: " : "";
+        Timestamp? ts = chatData['lastMessageTimestamp'] as Timestamp?;
+        String formattedTime = ts != null ? DateFormat('HH:mm').format(ts.toDate()) : "";
 
         bool isOnline = userData['isOnline'] ?? false;
 
@@ -131,27 +132,23 @@ class HomeScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: Colors.green,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Theme
-                          .of(context)
-                          .scaffoldBackgroundColor, width: 2),
+                      border: Border.all(color: Theme.of(context).scaffoldBackgroundColor, width: 2),
                     ),
                   ),
                 ),
             ],
           ),
           title: Text(userData['username'] ?? userData['email']),
-          subtitle: Text('$prefix$lastMessage', maxLines: 1,
-              overflow: TextOverflow.ellipsis),
+          subtitle: Text('$prefix$lastMessage', maxLines: 1, overflow: TextOverflow.ellipsis),
           trailing: Text(formattedTime),
           onTap: () {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) =>
-                    ChatScreen(
-                      receiverEmail: userData["username"] ?? userData["email"],
-                      receiverID: userData["uid"],
-                    ),
+                builder: (context) => ChatScreen(
+                  receiverEmail: userData["username"] ?? userData["email"],
+                  receiverID: userData["uid"],
+                ),
               ),
             );
           },
