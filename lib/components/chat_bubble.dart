@@ -30,9 +30,13 @@ class ChatBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final bool isImage = messageType.startsWith('image');
+    final bubbleColor = isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white;
+    final bubbleAlignment =
+    isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+
     return Column(
-      crossAxisAlignment:
-      isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      crossAxisAlignment: bubbleAlignment,
       children: [
         if (senderName != null && !isCurrentUser)
           Padding(
@@ -61,7 +65,7 @@ class ChatBubble extends StatelessWidget {
             child: Container(
               margin: const EdgeInsets.only(bottom: 1.5),
               decoration: BoxDecoration(
-                color: isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white,
+                color: bubbleColor,
                 borderRadius: _getBorderRadius(),
                 boxShadow: const [
                   BoxShadow(
@@ -75,7 +79,7 @@ class ChatBubble extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   if (replyToMessage != null) _buildReplyHeader(),
-                  if (messageType.startsWith('image'))
+                  if (isImage)
                     _buildImageContent(context)
                   else
                     _buildTextContent(),
@@ -105,19 +109,16 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildReplyHeader() {
-    final bool isImageReply = replyToMessage!.contains('image') ||
-        replyToMessage!.contains('http');
+    final bool isImageReply =
+        replyToMessage!.contains('image') || replyToMessage!.contains('http');
+    final Color replyColor =
+    isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
       decoration: BoxDecoration(
         color: const Color(0xFFF2FBF7).withOpacity(0.9),
-        border: Border(
-          left: BorderSide(
-            color: isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC),
-            width: 2.5,
-          ),
-        ),
+        border: Border(left: BorderSide(color: replyColor, width: 2.5)),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
           topRight: Radius.circular(8),
@@ -131,7 +132,7 @@ class ChatBubble extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 12.5,
-              color: isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC),
+              color: replyColor,
             ),
           ),
           const SizedBox(height: 2),
@@ -163,21 +164,22 @@ class ChatBubble extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 _getImageWidget(context),
-                Positioned(
-                  bottom: 5,
-                  right: 5,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 1.5,
+                if (messageType != 'image_local')
+                  Positioned(
+                    bottom: 5,
+                    right: 5,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 5,
+                        vertical: 1.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: _buildStatusIndicator(isForImage: true),
                     ),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: _buildStatusIndicator(isForImage: true),
                   ),
-                ),
               ],
             ),
           ),
@@ -188,31 +190,36 @@ class ChatBubble extends StatelessWidget {
 
   Widget _getImageWidget(BuildContext context) {
     if (messageType == 'image_local') {
-      return Image.file(
-        File(message),
-        fit: BoxFit.cover,
-        cacheWidth: (MediaQuery.of(context).size.width * 0.5).toInt(),
-        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-          if (wasSynchronouslyLoaded) return child;
-          if (frame == null) {
-            return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-          }
-          return child;
-        },
-        errorBuilder: (context, error, stackTrace) => _errorPlaceholder(),
+      return Stack(
+        fit: StackFit.expand,
+        children: [
+          Image.file(File(message), fit: BoxFit.cover),
+          Container(color: Colors.black.withOpacity(0.4)),
+          const Center(
+            child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+            ),
+          ),
+        ],
       );
     }
 
     return Image.network(
       message,
       fit: BoxFit.cover,
-      cacheWidth: (MediaQuery.of(context).size.width * 0.5).toInt(),
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded) return child;
-        if (frame == null) {
-          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-        }
-        return child;
+        return AnimatedOpacity(
+          opacity: frame == null ? 0 : 1,
+          duration: const Duration(milliseconds: 300),
+          child: child,
+        );
+      },
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
       },
       errorBuilder: (context, error, stackTrace) => _errorPlaceholder(),
     );
@@ -252,26 +259,23 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildStatusIndicator({bool isForImage = false}) {
-    final statusColor = isForImage
-        ? Colors.white
-        : const Color(0xFFA0A6B1);
-
-    final readColor = isForImage
-        ? const Color(0xFF6BC7FF)
-        : const Color(0xFF3A9EFF);
+    final statusColor =
+    isForImage ? Colors.white : const Color(0xFFA0A6B1);
+    final readColor =
+    isForImage ? const Color(0xFF6BC7FF) : const Color(0xFF3A9EFF);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isEdited)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 1.5),
+          const Padding(
+            padding: EdgeInsets.only(bottom: 1.5),
             child: Text(
               "изм.",
               style: TextStyle(
                 fontSize: 11,
-                color: statusColor,
+                color: Color(0xFFA0A6B1),
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -292,27 +296,19 @@ class ChatBubble extends StatelessWidget {
     if (messageType == 'image_local') return;
 
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
+      PageRouteBuilder(
+        opaque: false,
+        pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
+          backgroundColor: Colors.black.withOpacity(animation.value),
           body: SafeArea(
             child: Stack(
               children: [
                 PhotoView(
                   imageProvider: NetworkImage(message),
-                  backgroundDecoration: const BoxDecoration(color: Colors.black),
-                  loadingBuilder: (context, event) => Center(
-                    child: SizedBox(
-                      width: 30,
-                      height: 30,
-                      child: CircularProgressIndicator(
-                        value: event?.expectedTotalBytes != null
-                            ? (event!.cumulativeBytesLoaded / event.expectedTotalBytes!)
-                            : null,
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    ),
+                  backgroundDecoration:
+                  const BoxDecoration(color: Colors.transparent),
+                  loadingBuilder: (context, event) => const Center(
+                    child: CircularProgressIndicator(color: Colors.white),
                   ),
                 ),
                 Positioned(

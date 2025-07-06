@@ -1,12 +1,9 @@
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
 import 'package:messenger_flutter/config.dart';
-import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 
 class StorageService {

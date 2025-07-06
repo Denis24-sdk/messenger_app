@@ -1,9 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_button.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glassmorphism/glassmorphism.dart';
+import 'package:messenger_flutter/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RegisterScreen extends StatefulWidget {
   final void Function()? onTap;
@@ -19,53 +20,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController = TextEditingController();
 
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  @override
+  void dispose() {
+    usernameController.dispose();
+    emailController.dispose();
+    passwordController.dispose();
+    confirmPasswordController.dispose();
+    super.dispose();
+  }
 
-  bool _isLoading = false;
-
-  void register() async {
-    if (_isLoading) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
+  void _handleRegister() async {
+    final authService = context.read<AuthService>();
     try {
-      if (passwordController.text != confirmPasswordController.text) {
-        throw Exception("Пароли не совпадают!");
-      }
-
-      final username = usernameController.text.trim();
-      if (username.isEmpty) {
-        throw Exception("Логин не может быть пустым");
-      }
-
-      final existingUser = await _firestore
-          .collection('Users')
-          .where('username', isEqualTo: username)
-          .limit(1)
-          .get();
-
-      if (existingUser.docs.isNotEmpty) {
-        throw Exception("Этот логин уже занят");
-      }
-
-      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
-        email: emailController.text.trim(),
-        password: passwordController.text,
+      await authService.register(
+        usernameController.text,
+        emailController.text,
+        passwordController.text,
+        confirmPasswordController.text,
       );
-
-      await _firestore.collection("Users").doc(userCredential.user!.uid).set({
-        'uid': userCredential.user!.uid,
-        'email': emailController.text.trim(),
-        'username': usernameController.text.trim(),
-        'isOnline': true,
-        'last_seen': Timestamp.now(),
-      });
-
-
     } catch (e) {
+      if (!mounted) return;
+
       String errorMessage = "Произошла ошибка.";
       if (e is FirebaseAuthException) {
         if (e.code == 'email-already-in-use') {
@@ -79,20 +54,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
         errorMessage = e.toString().replaceFirst('Exception: ', '');
       }
 
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() { _isLoading = false; });
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+    final isLoading = authService.status == AuthStatus.authenticating;
+
     return Scaffold(
         resizeToAvoidBottomInset: false,
         backgroundColor: Colors.black,
@@ -178,8 +150,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       const SizedBox(height: 30),
                       MyButton(
                         text: "Зарегистрироваться",
-                        onTap: register,
-                        child: _isLoading
+                        onTap: isLoading ? null : _handleRegister,
+                        child: isLoading
                             ? const SizedBox(
                           width: 24,
                           height: 24,
@@ -196,7 +168,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         children: [
                           Text(
                             'Уже есть аккаунт? ',
-                            style: TextStyle(color: Colors.grey[900], fontWeight: FontWeight.bold,),
+                            style: TextStyle(
+                              color: Colors.grey[900],
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                           const SizedBox(width: 15),
                           GestureDetector(
@@ -206,7 +181,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: HSLColor.fromColor(Colors.white).withAlpha(0.7).toColor(),
+                                color: HSLColor.fromColor(Colors.white)
+                                    .withAlpha(0.7)
+                                    .toColor(),
                               ),
                             ),
                           ),
@@ -218,7 +195,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
               ),
             ),
           ),
-        )
-    );
+        ));
   }
 }

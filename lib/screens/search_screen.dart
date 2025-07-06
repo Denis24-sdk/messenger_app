@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:messenger_flutter/screens/chat_screen.dart';
+import 'package:messenger_flutter/screens/chat_screen_wrapper.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
+import 'package:provider/provider.dart';
 
 class SearchScreen extends StatefulWidget {
   const SearchScreen({super.key});
@@ -13,20 +14,6 @@ class SearchScreen extends StatefulWidget {
 
 class _SearchScreenState extends State<SearchScreen> {
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = "";
-
-  final ChatService _chatService = ChatService();
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(() {
-      setState(() {
-        _searchQuery = _searchController.text;
-      });
-    });
-  }
 
   @override
   void dispose() {
@@ -43,50 +30,53 @@ class _SearchScreenState extends State<SearchScreen> {
           hintText: "Поиск...",
           obscureText: false,
           autofocus: true,
-          textInputAction: TextInputAction.search,
+          onChanged: (value) => setState(() {}),
         ),
         backgroundColor: Colors.transparent,
         foregroundColor: Colors.grey,
         elevation: 0,
         actions: [
-          if (_searchQuery.isNotEmpty)
+          if (_searchController.text.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.clear),
               onPressed: () {
                 _searchController.clear();
+                setState(() {});
               },
             ),
         ],
       ),
-      body: _buildUserList(),
+      body: _UserList(searchQuery: _searchController.text),
     );
   }
+}
 
-  Widget _buildUserList() {
+class _UserList extends StatelessWidget {
+  final String searchQuery;
+  const _UserList({required this.searchQuery});
+
+  @override
+  Widget build(BuildContext context) {
+    final chatService = context.read<ChatService>();
+    final auth = context.read<FirebaseAuth>();
+
     return StreamBuilder<List<Map<String, dynamic>>>(
-      stream: _chatService.getUsersStream(),
+      stream: chatService.getUsersStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) return const Center(child: Text("Ошибка"));
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
-        if (!snapshot.hasData || snapshot.data!.isEmpty) {
-          return const Center(child: Text("Нет пользователей."));
-        }
 
-        var allUsers = snapshot.data!;
-
-        // Фильтруем пользователей
+        final allUsers = snapshot.data!;
         final filteredUsers = allUsers.where((user) {
-          if (user['uid'] == _auth.currentUser!.uid) {
-            return false;
-          }
-          if (_searchQuery.isEmpty) {
-            return true;
-          }
-          String username = (user["username"] ?? "").toLowerCase();
-          String email = (user["email"] ?? "").toLowerCase();
-          String query = _searchQuery.toLowerCase();
+          if (user['uid'] == auth.currentUser!.uid) return false;
+
+          if (searchQuery.isEmpty) return true;
+
+          final username = (user["username"] ?? "").toLowerCase();
+          final email = (user["email"] ?? "").toLowerCase();
+          final query = searchQuery.toLowerCase();
           return username.contains(query) || email.contains(query);
         }).toList();
 
@@ -97,14 +87,21 @@ class _SearchScreenState extends State<SearchScreen> {
         return ListView.builder(
           itemCount: filteredUsers.length,
           itemBuilder: (context, index) {
-            return _buildUserListItem(filteredUsers[index], context);
+            return _UserListItem(userData: filteredUsers[index]);
           },
         );
       },
     );
   }
+}
 
-  Widget _buildUserListItem(Map<String, dynamic> userData, BuildContext context) {
+class _UserListItem extends StatelessWidget {
+  final Map<String, dynamic> userData;
+  const _UserListItem({required this.userData});
+
+  @override
+  Widget build(BuildContext context) {
+    final auth = context.read<FirebaseAuth>();
     final String? avatarUrl = userData['avatarUrl'];
     final String displayName = userData["username"] ?? userData["email"];
 
@@ -114,12 +111,12 @@ class _SearchScreenState extends State<SearchScreen> {
         backgroundColor: Colors.grey.shade300,
         backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
         child: avatarUrl == null
-            ? Icon(Icons.person, size: 24, color: Colors.grey.shade800)
+            ? const Icon(Icons.person, size: 24, color: Colors.grey)
             : null,
       ),
       title: Text(displayName),
       onTap: () {
-        final currentUser = _auth.currentUser;
+        final currentUser = auth.currentUser;
         if (currentUser == null) return;
 
         List<String> ids = [currentUser.uid, userData['uid']];
@@ -129,7 +126,7 @@ class _SearchScreenState extends State<SearchScreen> {
         Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => ChatScreen(
+            builder: (context) => ChatScreenWrapper(
               chatName: displayName,
               isGroup: false,
               chatRoomId: chatRoomId,

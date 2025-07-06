@@ -1,12 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_button.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:glassmorphism/glassmorphism.dart';
-
-
+import 'package:messenger_flutter/services/auth_service.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LoginScreen extends StatefulWidget {
   final void Function()? onTap;
@@ -21,51 +19,17 @@ class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
 
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-
-
-  // Метод для входа пользователя
-  void login() async {
-    // Показываем индикатор загрузки
-    showDialog(
-      context: context,
-      builder: (context) => const Center(child: CircularProgressIndicator()),
-      barrierDismissible: false,
-    );
+  void login(BuildContext context) async {
+    final authService = context.read<AuthService>();
 
     try {
-      // Найти email по логину
-      QuerySnapshot querySnapshot = await _firestore
-          .collection('Users')
-          .where('username', isEqualTo: usernameController.text)
-          .limit(1)
-          .get();
-
-      if (querySnapshot.docs.isEmpty) {
-        throw Exception('Пользователь с таким логином не найден');
-      }
-
-      String userEmail = querySnapshot.docs.first['email'];
-
-      // Выполнить вход по найденному email и паролю
-      UserCredential userCredential = await _auth.signInWithEmailAndPassword(
-        email: userEmail,
-        password: passwordController.text,
+      await authService.login(
+        usernameController.text.trim(),
+        passwordController.text.trim(),
       );
-
-
-      if (mounted) {
-        Navigator.pop(context);
-      }
-
-
     } catch (e) {
-      if (mounted) {
-        Navigator.pop(context);
-      }
+      if (!mounted) return;
 
-      // Обрабатываем любые ошибки (от Firestore или Auth)
       String errorMessage = "Произошла ошибка. Попробуйте снова.";
       if (e is FirebaseAuthException) {
         if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
@@ -77,18 +41,17 @@ class _LoginScreenState extends State<LoginScreen> {
         errorMessage = 'Пользователь с таким логином не найден.';
       }
 
-      // показываем SnackBar
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     }
-    // блок finally больше не нужен
   }
 
   @override
   Widget build(BuildContext context) {
+    final authService = context.watch<AuthService>();
+    final bool isLoading = authService.status == AuthStatus.authenticating;
+
     return Scaffold(
       backgroundColor: Colors.transparent,
       body: Container(
@@ -129,7 +92,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-
                     const Text(
                       "Снова с нами?",
                       style: TextStyle(
@@ -148,8 +110,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 40),
-
-
                     MyTextField(
                       hintText: "Логин",
                       obscureText: false,
@@ -162,20 +122,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       controller: passwordController,
                     ),
                     const SizedBox(height: 40),
-
-
                     MyButton(
                       text: "Войти",
-                      onTap: login,
+                      onTap: isLoading ? null : () => login(context),
+                      child: isLoading ? const CircularProgressIndicator(color: Colors.white) : null,
                     ),
                     const SizedBox(height: 30),
-
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
                           'Впервые здесь? ',
-                          style: TextStyle(color: Colors.grey[900], fontWeight: FontWeight.bold,),
+                          style: TextStyle(
+                              color: Colors.grey[900],
+                              fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(width: 10),
                         GestureDetector(
@@ -185,7 +145,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
-                              color: HSLColor.fromColor(Colors.white).withAlpha(0.7).toColor(),
+                              color: HSLColor.fromColor(Colors.white)
+                                  .withAlpha(0.7)
+                                  .toColor(),
                             ),
                           ),
                         ),

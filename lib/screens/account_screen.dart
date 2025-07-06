@@ -1,342 +1,198 @@
-import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:messenger_flutter/services/storage/storage_service.dart';
+import 'package:messenger_flutter/providers/account_provider.dart';
 import 'package:photo_view/photo_view.dart';
+import 'package:provider/provider.dart';
 
-class AccountScreen extends StatefulWidget {
+class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
 
   @override
-  State<AccountScreen> createState() => _AccountScreenState();
-}
-
-class _AccountScreenState extends State<AccountScreen> {
-  final FirebaseAuth _auth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final StorageService _storageService = StorageService();
-
-  User? _currentUser;
-  Map<String, dynamic>? _userData;
-  bool _isLoading = true;
-  bool _isEditingName = false;
-  bool _isEditingBio = false; // Добавлено состояние редактирования описания
-  bool _isUploading = false;
-
-  late TextEditingController _nameController;
-  late TextEditingController _bioController; // Контроллер для описания
-
-  @override
-  void initState() {
-    super.initState();
-    _nameController = TextEditingController();
-    _bioController = TextEditingController(); // Инициализация контроллера описания
-    _loadUserData();
-  }
-
-  @override
-  void dispose() {
-    _nameController.dispose();
-    _bioController.dispose(); // Освобождение ресурсов
-    super.dispose();
-  }
-
-  Future<void> _loadUserData() async {
-    setState(() => _isLoading = true);
-    _currentUser = _auth.currentUser;
-    if (_currentUser != null) {
-      try {
-        DocumentSnapshot userDoc =
-        await _firestore.collection('Users').doc(_currentUser!.uid).get();
-        if (mounted && userDoc.exists) {
-          setState(() {
-            _userData = userDoc.data() as Map<String, dynamic>;
-            _nameController.text = _userData?['username'] ?? '';
-            // Загрузка описания из базы данных
-            _bioController.text = _userData?['bio'] ?? '';
-          });
-        }
-      } catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Ошибка загрузки данных: $e')),
-          );
-        }
-      }
-    }
-    if (mounted) {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  Future<void> _updateUsername() async {
-    if (_nameController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Имя не может быть пустым')),
-      );
-      return;
-    }
-
-    if (_currentUser != null) {
-      try {
-        await _firestore
-            .collection('Users')
-            .doc(_currentUser!.uid)
-            .update({'username': _nameController.text.trim()});
-
-        setState(() {
-          _userData?['username'] = _nameController.text.trim();
-          _isEditingName = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Имя успешно обновлено')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка обновления имени: $e')),
-        );
-      }
-    }
-  }
-
-  // Метод для обновления описания
-  Future<void> _updateBio() async {
-    if (_currentUser != null) {
-      try {
-        await _firestore
-            .collection('Users')
-            .doc(_currentUser!.uid)
-            .update({'bio': _bioController.text.trim()});
-
-        setState(() {
-          _userData?['bio'] = _bioController.text.trim();
-          _isEditingBio = false;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Описание успешно обновлено')),
-        );
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Ошибка обновления описания: $e')),
-        );
-      }
-    }
-  }
-
-  Future<void> _uploadAvatar() async {
-    File? image = await _storageService.pickImage();
-    if (image == null) return;
-
-    if (mounted) setState(() => _isUploading = true);
-
-    if (_userData?['avatarFileId'] != null) {
-      await _storageService.deleteFile(_userData!['avatarFileId']);
-    }
-
-    Map<String, String>? uploadResult = await _storageService.uploadFile(image);
-
-    if (uploadResult != null) {
-      String downloadUrl = uploadResult['url']!;
-      String fileId = uploadResult['fileId']!;
-
-      await _firestore.collection('Users').doc(_currentUser!.uid).update({
-        'avatarUrl': downloadUrl,
-        'avatarFileId': fileId,
-      });
-
-      if (mounted) {
-        setState(() {
-          _userData?['avatarUrl'] = downloadUrl;
-          _userData?['avatarFileId'] = fileId;
-        });
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Аватар успешно обновлен!')));
-      }
-    } else {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ошибка загрузки аватара.')));
-      }
-    }
-    if (mounted) {
-      setState(() => _isUploading = false);
-    }
-  }
-
-
-  void _openFullScreenAvatar(BuildContext context, String imageUrl) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: PhotoView(
-                  imageProvider: NetworkImage(imageUrl),
-                  minScale: PhotoViewComputedScale.contained * 0.8,
-                  maxScale: PhotoViewComputedScale.covered * 3,
-                  backgroundDecoration: const BoxDecoration(color: Colors.black),
-                  loadingBuilder: (context, event) => const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.broken_image, color: Colors.white, size: 60),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-
-  @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Аккаунт'),
         backgroundColor: Colors.transparent,
         elevation: 0,
       ),
-      body: _isLoading
+      body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
-          : _userData == null
-          ? const Center(child: Text('Не удалось загрузить данные пользователя.'))
-          : _buildUserProfile(),
+          : provider.userData == null
+          ? const Center(child: Text('Не удалось загрузить данные.'))
+          : const _UserProfile(),
     );
   }
+}
 
-  Widget _buildUserProfile() {
-    final avatarUrl = _userData?['avatarUrl'];
+class _UserProfile extends StatelessWidget {
+  const _UserProfile();
 
+  @override
+  Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16.0),
-      children: [
-        Center(
-          child: Stack(
-            children: [
-              GestureDetector(
-                onTap: avatarUrl != null && !_isUploading
-                    ? () => _openFullScreenAvatar(context, avatarUrl)
-                    : null,
-                child: CircleAvatar(
-                  radius: 60,
-                  backgroundColor: Colors.grey.shade300,
-                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl == null
-                      ? Icon(Icons.person, size: 60, color: Colors.grey.shade800)
-                      : null,
-                ),
-              ),
-              Positioned(
-                bottom: 0,
-                right: 0,
-                child: CircleAvatar(
-                  backgroundColor: Theme.of(context).primaryColor,
-                  child: IconButton(
-                    icon: const Icon(Icons.camera_alt, color: Colors.white),
-                    onPressed: _isUploading ? null : _uploadAvatar,
-                  ),
-                ),
-              ),
-              if (_isUploading)
-                const Positioned.fill(
-                  child: Center(child: CircularProgressIndicator()),
-                )
-            ],
-          ),
-        ),
-        const SizedBox(height: 24),
-        _isEditingName ? _buildNameEditor() : _buildNameDisplay(),
-        const SizedBox(height: 8),
-        Center(
-          child: Text(
-            _userData?['email'] ?? 'Email не найден',
-            style: const TextStyle(color: Colors.grey, fontSize: 16),
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Секция с описанием
-        _isEditingBio ? _buildBioEditor() : _buildBioDisplay(),
-        const SizedBox(height: 24),
-
-        const Divider(),
-        const SizedBox(height: 16),
-        ListTile(
-          leading: const Icon(Icons.settings),
-          title: const Text('Настройки'),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Раздел "Настройки" в разработке')),
-            );
-          },
-        ),
-        ListTile(
-          leading: const Icon(Icons.info_outline),
-          title: const Text('Информация'),
-          onTap: () {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Раздел "Информация" в разработке')),
-            );
-          },
-        ),
+      children: const [
+        _AvatarSection(),
+        SizedBox(height: 24),
+        _NameSection(),
+        SizedBox(height: 8),
+        _EmailSection(),
+        SizedBox(height: 24),
+        _BioSection(),
+        SizedBox(height: 24),
+        Divider(),
+        SizedBox(height: 16),
+        _SettingsPlaceholder(),
       ],
     );
   }
+}
 
-  Widget _buildNameDisplay() {
+class _AvatarSection extends StatelessWidget {
+  const _AvatarSection();
+
+  void _openFullScreenAvatar(BuildContext context, String imageUrl) {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(children: [
+          PhotoView(imageProvider: NetworkImage(imageUrl)),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ]),
+      ),
+    ));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
+    final avatarUrl = provider.userData?['avatarUrl'];
+
+    return Center(
+      child: Stack(
+        children: [
+          GestureDetector(
+            onTap: avatarUrl != null && !provider.isUploading
+                ? () => _openFullScreenAvatar(context, avatarUrl)
+                : null,
+            child: CircleAvatar(
+              radius: 60,
+              backgroundColor: Colors.grey.shade300,
+              backgroundImage:
+              avatarUrl != null ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl == null
+                  ? Icon(Icons.person, size: 60, color: Colors.grey.shade800)
+                  : null,
+            ),
+          ),
+          Positioned(
+            bottom: 0,
+            right: 0,
+            child: CircleAvatar(
+              backgroundColor: Theme.of(context).primaryColor,
+              child: IconButton(
+                icon: const Icon(Icons.camera_alt, color: Colors.white),
+                onPressed:
+                provider.isUploading ? null : context.read<AccountProvider>().uploadAvatar,
+              ),
+            ),
+          ),
+          if (provider.isUploading)
+            const Positioned.fill(
+              child: Center(child: CircularProgressIndicator()),
+            )
+        ],
+      ),
+    );
+  }
+}
+
+class _NameSection extends StatelessWidget {
+  const _NameSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
+    return provider.isEditingName
+        ? const _NameEditor()
+        : const _NameDisplay();
+  }
+}
+
+class _NameDisplay extends StatelessWidget {
+  const _NameDisplay();
+
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
     return Row(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          _userData?['username'] ?? 'Имя не указано',
+          provider.userData?['username'] ?? 'Имя не указано',
           style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
         ),
         IconButton(
           icon: const Icon(Icons.edit, size: 20, color: Colors.grey),
-          onPressed: () {
-            setState(() {
-              _isEditingName = true;
-            });
-          },
+          onPressed: () => context.read<AccountProvider>().setEditingName(true),
         ),
       ],
     );
   }
+}
 
-  Widget _buildNameEditor() {
+class _NameEditor extends StatefulWidget {
+  const _NameEditor();
+  @override
+  State<_NameEditor> createState() => _NameEditorState();
+}
+
+class _NameEditorState extends State<_NameEditor> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+        text: context.read<AccountProvider>().userData?['username'] ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _updateUsername() async {
+    try {
+      await context.read<AccountProvider>().updateUsername(_controller.text);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))));
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Expanded(
           child: TextField(
-            controller: _nameController,
+            controller: _controller,
             autofocus: true,
             textAlign: TextAlign.center,
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            decoration: const InputDecoration(
-              hintText: 'Введите имя',
-              border: InputBorder.none,
-              focusedBorder: UnderlineInputBorder(),
-            ),
+            decoration: const InputDecoration.collapsed(hintText: 'Введите имя'),
           ),
         ),
         IconButton(
@@ -345,38 +201,55 @@ class _AccountScreenState extends State<AccountScreen> {
         ),
         IconButton(
           icon: const Icon(Icons.close, color: Colors.red),
-          onPressed: () {
-            setState(() {
-              _isEditingName = false;
-              _nameController.text = _userData?['username'] ?? '';
-            });
-          },
+          onPressed: () => context.read<AccountProvider>().setEditingName(false),
         ),
       ],
     );
   }
+}
 
-  // Виджет для отображения описания
-  Widget _buildBioDisplay() {
+class _EmailSection extends StatelessWidget {
+  const _EmailSection();
+  @override
+  Widget build(BuildContext context) {
+    final email = context.watch<AccountProvider>().userData?['email'];
+    return Center(
+      child: Text(
+        email ?? 'Email не найден',
+        style: const TextStyle(color: Colors.grey, fontSize: 16),
+      ),
+    );
+  }
+}
+
+class _BioSection extends StatelessWidget {
+  const _BioSection();
+  @override
+  Widget build(BuildContext context) {
+    return context.watch<AccountProvider>().isEditingBio
+        ? const _BioEditor()
+        : const _BioDisplay();
+  }
+}
+
+class _BioDisplay extends StatelessWidget {
+  const _BioDisplay();
+  @override
+  Widget build(BuildContext context) {
+    final provider = context.watch<AccountProvider>();
+    final bio = provider.userData?['bio'];
+    final hasBio = bio != null && bio.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16.0),
-          child: Text(
-            'Описание:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ),
+        const Text('Описание:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 8),
         GestureDetector(
-          onTap: () {
-            setState(() {
-              _isEditingBio = true;
-            });
-          },
+          onTap: () => context.read<AccountProvider>().setEditingBio(true),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
@@ -385,17 +258,10 @@ class _AccountScreenState extends State<AccountScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    _userData?['bio']?.isNotEmpty == true
-                        ? _userData!['bio']
-                        : 'Добавьте описание...',
-                    style: TextStyle(
-                      color: _userData?['bio']?.isNotEmpty == true
-                          ? Colors.black
-                          : Colors.grey,
-                    ),
+                    hasBio ? bio : 'Добавьте описание...',
+                    style: TextStyle(color: hasBio ? Colors.black : Colors.grey),
                   ),
                 ),
-                const SizedBox(width: 8),
                 const Icon(Icons.edit, size: 18, color: Colors.grey),
               ],
             ),
@@ -404,34 +270,45 @@ class _AccountScreenState extends State<AccountScreen> {
       ],
     );
   }
+}
 
-  // Виджет для редактирования описания
-  Widget _buildBioEditor() {
+class _BioEditor extends StatefulWidget {
+  const _BioEditor();
+  @override
+  State<_BioEditor> createState() => _BioEditorState();
+}
+
+class _BioEditorState extends State<_BioEditor> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(
+        text: context.read<AccountProvider>().userData?['bio'] ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Padding(
-          padding: EdgeInsets.only(left: 16.0),
-          child: Text(
-            'Описание:',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-          ),
-        ),
+        const Text('Описание:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16),
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: TextField(
-            controller: _bioController,
-            maxLines: 3,
-            autofocus: true,
-            decoration: const InputDecoration(
-              hintText: 'Расскажите о себе...',
-              border: InputBorder.none,
-            ),
+        TextField(
+          controller: _controller,
+          maxLines: 3,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Расскажите о себе...',
+            border: OutlineInputBorder(),
+            contentPadding: EdgeInsets.all(12),
           ),
         ),
         const SizedBox(height: 12),
@@ -439,23 +316,37 @@ class _AccountScreenState extends State<AccountScreen> {
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             TextButton(
-              onPressed: () {
-                setState(() {
-                  _isEditingBio = false;
-                  _bioController.text = _userData?['bio'] ?? '';
-                });
-              },
+              onPressed: () => context.read<AccountProvider>().setEditingBio(false),
               child: const Text('Отмена'),
             ),
-            const SizedBox(width: 8),
             ElevatedButton(
-              onPressed: _updateBio,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-              ),
+              onPressed: () => context.read<AccountProvider>().updateBio(_controller.text),
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
               child: const Text('Сохранить'),
             ),
           ],
+        ),
+      ],
+    );
+  }
+}
+
+class _SettingsPlaceholder extends StatelessWidget {
+  const _SettingsPlaceholder();
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        ListTile(
+          leading: const Icon(Icons.settings),
+          title: const Text('Настройки'),
+          onTap: () {},
+        ),
+        ListTile(
+          leading: const Icon(Icons.info_outline),
+          title: const Text('Информация'),
+          onTap: () {},
         ),
       ],
     );
