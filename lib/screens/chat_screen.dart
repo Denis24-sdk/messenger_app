@@ -40,16 +40,13 @@ class _ChatScreenState extends State<ChatScreen> {
   Map<String, dynamic>? _replyingTo;
   Timer? _typingTimer;
   Map<String, dynamic>? _receiverData;
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _messageController.addListener(_handleTyping);
-    if (widget.isGroup) {
-      _loadGroupMembersData();
-    } else {
-      _loadReceiverData();
-    }
+    _loadInitialData();
   }
 
   @override
@@ -64,65 +61,88 @@ class _ChatScreenState extends State<ChatScreen> {
     super.dispose();
   }
 
+  Future<void> _loadInitialData() async {
+    if (widget.isGroup) {
+      await _loadGroupMembersData();
+    } else {
+      await _loadReceiverData();
+    }
+    if (mounted) {
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _loadReceiverData() async {
     if (widget.receiverID == null) return;
     final doc = await FirebaseFirestore.instance.collection('Users').doc(widget.receiverID).get();
     if (doc.exists && mounted) {
-      setState(() => _receiverData = doc.data());
+      _receiverData = doc.data();
     }
   }
 
   Future<void> _loadGroupMembersData() async {
     final chatRoomDoc = await FirebaseFirestore.instance.collection('chat_rooms').doc(widget.chatRoomId).get();
-    if (!mounted || !chatRoomDoc.exists || chatRoomDoc.data()!['members'] == null) return;
+    if (!chatRoomDoc.exists || chatRoomDoc.data()?['members'] == null) return;
 
     List<String> memberIds = List<String>.from(chatRoomDoc.data()!['members']);
-    for (String id in memberIds) {
-      if (!_userCache.containsKey(id)) {
-        final userDoc = await FirebaseFirestore.instance.collection('Users').doc(id).get();
-        if (userDoc.exists) {
-          if (!mounted) return;
-          setState(() => _userCache[id] = userDoc.data()!);
-        }
+
+    // Загружаем данные всех участников параллельно
+    var userFutures = memberIds
+        .where((id) => !_userCache.containsKey(id))
+        .map((id) => FirebaseFirestore.instance.collection('Users').doc(id).get());
+
+    final userDocs = await Future.wait(userFutures);
+
+    for (var doc in userDocs) {
+      if (doc.exists) {
+        _userCache[doc.id] = doc.data()!;
+      }
+    }
+  }
+
+  void _sendImage() async {
+    File? imageFile = await _storageService.pickImage();
+    if (imageFile == null) return;
+
+    _cancelReply();
+
+    DocumentReference messageRef = await _chatService.sendLocalImageMessage(
+        widget.chatRoomId, widget.receiverID ?? '', imageFile);
+
+    try {
+      Map<String, String>? uploadResult = await _storageService.uploadFile(imageFile);
+      if (uploadResult != null && mounted) {
+        await _chatService.updateImageMessageUrl(messageRef, uploadResult['url']!, uploadResult['fileId']!);
+      } else {
+        await messageRef.delete();
+      }
+    } catch (e) {
+      await messageRef.delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ошибка загрузки изображения.')));
       }
     }
   }
 
   void sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
+
     _typingTimer?.cancel();
     _chatService.updateTypingStatus(widget.chatRoomId, false);
 
     final replyData = _replyingTo;
     _cancelReply();
 
+    final text = _messageController.text.trim();
+    _messageController.clear();
+
     await _chatService.sendMessage(
       widget.chatRoomId,
-      _messageController.text.trim(),
+      text,
       receiverID: widget.receiverID,
       replyToMessage: replyData?['message'],
       replyToSenderName: replyData?['senderName'],
     );
-    _messageController.clear();
-  }
-
-  void _sendImage() async {
-    File? imageFile = await _storageService.pickImage();
-    if (imageFile == null) return;
-    _cancelReply();
-
-    DocumentReference messageRef = await _chatService.sendLocalImageMessage(
-        widget.chatRoomId, widget.receiverID ?? '', imageFile);
-
-    Map<String, String>? uploadResult = await _storageService.uploadFile(imageFile);
-    if (uploadResult != null) {
-      await _chatService.updateImageMessageUrl(messageRef, uploadResult['url']!, uploadResult['fileId']!);
-    } else {
-      await messageRef.delete();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Не удалось загрузить изображение.')));
-      }
-    }
   }
 
   void _handleTyping() {
@@ -140,7 +160,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: _buildAppBarTitle(),
+        title: _isLoading ? const SizedBox.shrink() : _buildAppBarTitle(),
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -152,39 +172,14 @@ class _ChatScreenState extends State<ChatScreen> {
           ),
         ],
       ),
-      body: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
         children: [
           Expanded(child: _buildMessageList()),
           _buildTypingIndicator(),
           if (_replyingTo != null) _buildReplyContext(),
           _buildUserInput(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReplyContext() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1)),
-      child: Row(
-        children: [
-          Icon(Icons.reply, color: Colors.green.shade600, size: 20),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Ответ на: ${_replyingTo!['senderName']}", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700)),
-                Text(_replyingTo!['message'], maxLines: 1, overflow: TextOverflow.ellipsis),
-              ],
-            ),
-          ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close, size: 20),
-            onPressed: _cancelReply,
-          ),
         ],
       ),
     );
@@ -204,9 +199,10 @@ class _ChatScreenState extends State<ChatScreen> {
       child: StreamBuilder<DocumentSnapshot>(
         stream: _chatService.getUserStream(widget.receiverID!),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) return Text(widget.chatName);
+          if (!snapshot.hasData || snapshot.data?.data() == null) return Text(widget.chatName);
+
           var userData = snapshot.data!.data() as Map<String, dynamic>;
-          if (_receiverData == null) _receiverData = userData;
+          _receiverData = userData; // Always keep receiver data updated
 
           bool isOnline = userData['isOnline'] ?? false;
           String statusText = isOnline ? "в сети" : "не в сети";
@@ -240,7 +236,7 @@ class _ChatScreenState extends State<ChatScreen> {
       stream: _chatService.getMessages(widget.chatRoomId),
       builder: (context, snapshot) {
         if (snapshot.hasError) return const Center(child: Text("Ошибка загрузки"));
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _chatService.markMessagesAsRead(widget.chatRoomId, _auth.currentUser!.uid);
@@ -317,30 +313,6 @@ class _ChatScreenState extends State<ChatScreen> {
       },
     );
   }
-
-  Widget _buildUserInput() {
-    return Padding(
-      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
-      child: Row(
-        children: [
-          IconButton(icon: const Icon(Icons.add_photo_alternate_outlined), onPressed: _sendImage),
-          Expanded(child: MyTextField(
-            controller: _messageController,
-            hintText: "Сообщение...",
-            obscureText: false,
-          )),
-          Container(
-            decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-            margin: const EdgeInsets.only(left: 8),
-            child: IconButton(onPressed: sendMessage, icon: const Icon(Icons.arrow_upward, color: Colors.white)),
-          ),
-        ],
-      ),
-    );
-  }
-
-
-  // диалоговые окна
 
   void _openReceiverProfile(BuildContext context) {
     if (_receiverData == null) return;
@@ -435,6 +407,53 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _cancelReply() => setState(() => _replyingTo = null);
 
+  Widget _buildReplyContext() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      decoration: BoxDecoration(color: Theme.of(context).primaryColor.withOpacity(0.1)),
+      child: Row(
+        children: [
+          Icon(Icons.reply, color: Colors.green.shade600, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text("Ответ на: ${_replyingTo!['senderName']}", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green.shade700)),
+                Text(_replyingTo!['message'], maxLines: 1, overflow: TextOverflow.ellipsis),
+              ],
+            ),
+          ),
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.close, size: 20),
+            onPressed: _cancelReply,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserInput() {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
+      child: Row(
+        children: [
+          IconButton(icon: const Icon(Icons.add_photo_alternate_outlined), onPressed: _sendImage),
+          Expanded(child: MyTextField(
+            controller: _messageController,
+            hintText: "Сообщение...",
+            obscureText: false,
+          )),
+          Container(
+            decoration: const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
+            margin: const EdgeInsets.only(left: 8),
+            child: IconButton(onPressed: sendMessage, icon: const Icon(Icons.arrow_upward, color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _showMessageOptions(String messageID, Map<String, dynamic> data) {
     bool isCurrentUser = data['senderID'] == _auth.currentUser!.uid;

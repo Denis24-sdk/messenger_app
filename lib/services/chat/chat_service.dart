@@ -86,7 +86,7 @@ class ChatService {
     await chatRoomRef.collection("messages").add(newMessage.toMap());
   }
 
-  Future<DocumentReference> sendLocalImageMessage(String chatRoomID, String receiverID, File imageFile, {String? fileId}) async {
+  Future<DocumentReference> sendLocalImageMessage(String chatRoomID, String receiverID, File imageFile) async {
     final String currentUserID = _auth.currentUser!.uid;
     final String currentUserEmail = _auth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
@@ -96,18 +96,17 @@ class ChatService {
       senderEmail: currentUserEmail,
       receiverID: receiverID,
       message: imageFile.path,
-      fileId: fileId,
       type: 'image_local',
       timestamp: timestamp,
     );
 
     DocumentReference chatRoomRef = _firestore.collection("chat_rooms").doc(chatRoomID);
 
-    await chatRoomRef.update({
+    await chatRoomRef.set({
       'lastMessage': "📷 Изображение",
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
-    });
+    }, SetOptions(merge: true));
 
     return await chatRoomRef.collection("messages").add(newMessage.toMap());
   }
@@ -183,6 +182,8 @@ class ChatService {
         .where('senderID', isNotEqualTo: currentUserId)
         .where('isRead', isEqualTo: false)
         .get();
+
+    if (querySnapshot.docs.isEmpty) return;
 
     final WriteBatch batch = _firestore.batch();
     for (var doc in querySnapshot.docs) {

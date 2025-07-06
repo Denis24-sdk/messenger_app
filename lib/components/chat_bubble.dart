@@ -36,7 +36,6 @@ class ChatBubble extends StatelessWidget {
       crossAxisAlignment:
       isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
       children: [
-        // Показываем имя отправителя
         if (senderName != null)
           Padding(
             padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
@@ -49,16 +48,13 @@ class ChatBubble extends StatelessWidget {
               ),
             ),
           ),
-
         GestureDetector(
           onLongPress: onLongPress,
           onHorizontalDragUpdate: (details) {
-            // Свайп для ответа
             if (isCurrentUser ? details.delta.dx < -10 : details.delta.dx > 10) {
               onReply();
             }
           },
-          onTap: isImage ? () => _openFullScreenImage(context) : null,
           child: Container(
             decoration: BoxDecoration(
               color: isCurrentUser ? Colors.green : Colors.grey.shade300,
@@ -74,83 +70,84 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-  void _openFullScreenImage(BuildContext context) {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => Scaffold(
-          backgroundColor: Colors.black,
-          body: Stack(
-            children: [
-              Center(
-                child: PhotoView(
-                  imageProvider: _getImageProvider(),
-                  minScale: PhotoViewComputedScale.contained * 0.8,
-                  maxScale: PhotoViewComputedScale.covered * 3,
-                  backgroundDecoration: const BoxDecoration(color: Colors.black),
-                  loadingBuilder: (context, event) => const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
-                  ),
-                  errorBuilder: (context, error, stackTrace) => const Center(
-                    child: Icon(Icons.broken_image, color: Colors.white, size: 60),
-                  ),
-                ),
-              ),
-              Positioned(
-                top: MediaQuery.of(context).padding.top + 16,
-                left: 16,
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.5),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () => Navigator.of(context).pop(),
-                  ),
-                ),
-              ),
-            ],
-          ),
+  Widget _buildImageContent(BuildContext context) {
+    return GestureDetector(
+      onTap: () => _openFullScreenImage(context),
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.6,
+          maxHeight: MediaQuery.of(context).size.width * 0.8,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(9),
+          child: _getImageWidget(),
         ),
       ),
+    );
+  }
+
+  Widget _getImageWidget() {
+    if (messageType == 'image_local') {
+      return Stack(
+        alignment: Alignment.center,
+        children: [
+          Image.file(File(message),
+            fit: BoxFit.cover,
+            width: double.infinity,
+            height: double.infinity,
+          ),
+          Container(color: Colors.black.withOpacity(0.4)),
+          const SizedBox(
+            width: 30,
+            height: 30,
+            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3),
+          ),
+        ],
+      );
+    }
+
+    return Image.network(
+      message,
+      fit: BoxFit.cover,
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
+      },
+      errorBuilder: (context, error, stackTrace) =>
+      const Icon(Icons.error, color: Colors.red),
     );
   }
 
   ImageProvider _getImageProvider() {
     if (messageType == 'image_local') {
       return FileImage(File(message));
-    } else {
-      return NetworkImage(message);
     }
+    return NetworkImage(message);
   }
 
-  Widget _buildImageContent(BuildContext context) {
-    Widget imageWidget;
-    if (messageType == 'image_local') {
-      imageWidget = Image.file(File(message), fit: BoxFit.cover);
-    } else {
-      imageWidget = Image.network(
-        message,
-        fit: BoxFit.cover,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
-          return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-        },
-        errorBuilder: (context, error, stackTrace) =>
-        const Icon(Icons.error, color: Colors.red),
-      );
-    }
+  void _openFullScreenImage(BuildContext context) {
+    if(messageType == 'image_local') return;
 
-    return Container(
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.6,
-        maxHeight: MediaQuery.of(context).size.width * 0.8,
+    Navigator.of(context).push(MaterialPageRoute(builder: (context) => Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          PhotoView(
+            imageProvider: _getImageProvider(),
+            backgroundDecoration: const BoxDecoration(color: Colors.black),
+            loadingBuilder: (context, event) => const Center(child: CircularProgressIndicator()),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 16,
+            left: 16,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+          ),
+        ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(9),
-        child: imageWidget,
-      ),
-    );
+    )));
   }
 
   Widget _buildTextContent() {
@@ -170,7 +167,6 @@ class ChatBubble extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Статус сообщения
             Row(
               children: [
                 if (isEdited)
