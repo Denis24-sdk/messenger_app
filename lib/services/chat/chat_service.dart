@@ -24,8 +24,35 @@ class ChatService {
         .snapshots();
   }
 
-  Future<void> sendMessage(String receiverID, String message,
-      {String? replyToMessage, String? replyToSenderName}) async {
+  Future<void> createGroupChat(String groupName, List<String> memberIds) async {
+    final String currentUserId = _auth.currentUser!.uid;
+    final String currentUsername = _auth.currentUser!.displayName ?? _auth.currentUser!.email!;
+
+    List<String> allMemberIds = [currentUserId, ...memberIds];
+    allMemberIds = allMemberIds.toSet().toList();
+
+    DocumentReference groupDocRef = _firestore.collection('chat_rooms').doc();
+
+    await groupDocRef.set({
+      'chatRoomId': groupDocRef.id,
+      'groupName': groupName,
+      'members': allMemberIds,
+      'isGroup': true,
+      'createdBy': currentUserId,
+      'createdAt': Timestamp.now(),
+      'lastMessage': '$currentUsername создал(а) группу',
+      'lastMessageSenderId': 'system',
+      'lastMessageTimestamp': Timestamp.now(),
+    });
+  }
+
+  Future<void> sendMessage(
+      String chatRoomID,
+      String message, {
+        String? receiverID,
+        String? replyToMessage,
+        String? replyToSenderName,
+      }) async {
     final String currentUserID = _auth.currentUser!.uid;
     final String currentUserEmail = _auth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
@@ -33,7 +60,7 @@ class ChatService {
     Message newMessage = Message(
       senderID: currentUserID,
       senderEmail: currentUserEmail,
-      receiverID: receiverID,
+      receiverID: receiverID ?? '',
       message: message,
       type: 'text',
       timestamp: timestamp,
@@ -41,25 +68,25 @@ class ChatService {
       replyToSender: replyToSenderName,
     );
 
-    List<String> ids = [currentUserID, receiverID];
-    ids.sort();
-    String chatRoomID = ids.join('_');
+    DocumentReference chatRoomRef = _firestore.collection("chat_rooms").doc(chatRoomID);
 
-    await _firestore.collection("chat_rooms").doc(chatRoomID).set({
-      'members': ids,
+    if (!(await chatRoomRef.get()).exists && receiverID != null) {
+      await chatRoomRef.set({
+        'members': [currentUserID, receiverID],
+        'isGroup': false,
+      });
+    }
+
+    await chatRoomRef.update({
       'lastMessage': message,
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
-    }, SetOptions(merge: true));
+    });
 
-    await _firestore
-        .collection("chat_rooms")
-        .doc(chatRoomID)
-        .collection("messages")
-        .add(newMessage.toMap());
+    await chatRoomRef.collection("messages").add(newMessage.toMap());
   }
 
-  Future<DocumentReference> sendLocalImageMessage(String receiverID, File imageFile, {String? fileId}) async {
+  Future<DocumentReference> sendLocalImageMessage(String chatRoomID, String receiverID, File imageFile, {String? fileId}) async {
     final String currentUserID = _auth.currentUser!.uid;
     final String currentUserEmail = _auth.currentUser!.email!;
     final Timestamp timestamp = Timestamp.now();
@@ -69,29 +96,26 @@ class ChatService {
       senderEmail: currentUserEmail,
       receiverID: receiverID,
       message: imageFile.path,
-      fileId: fileId, // Передаем fileId
+      fileId: fileId,
       type: 'image_local',
       timestamp: timestamp,
     );
 
-    List<String> ids = [currentUserID, receiverID];
-    ids.sort();
-    String chatRoomID = ids.join('_');
+    DocumentReference chatRoomRef = _firestore.collection("chat_rooms").doc(chatRoomID);
 
-    await _firestore.collection("chat_rooms").doc(chatRoomID).set({
-      'members': ids,
+    await chatRoomRef.update({
       'lastMessage': "📷 Изображение",
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
-    }, SetOptions(merge: true));
+    });
 
-    return await _firestore.collection("chat_rooms").doc(chatRoomID).collection("messages").add(newMessage.toMap());
+    return await chatRoomRef.collection("messages").add(newMessage.toMap());
   }
 
   Future<void> updateImageMessageUrl(DocumentReference messageRef, String newUrl, String newFileId) async {
     await messageRef.update({
       'message': newUrl,
-      'fileId': newFileId, // Обновляем fileId
+      'fileId': newFileId,
       'type': 'image',
     });
   }
@@ -102,7 +126,6 @@ class ChatService {
 
     if (doc.exists) {
       Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      // Если у сообщения есть fileId, удаляем его с хостинга
       if (data['type'] == 'image' && data['fileId'] != null) {
         await _storageService.deleteFile(data['fileId']);
       }
@@ -118,7 +141,6 @@ class ChatService {
 
     for (var doc in messagesSnapshot.docs) {
       Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      // Удаляем каждый файл картинки перед удалением документа
       if (data['type'] == 'image' && data['fileId'] != null) {
         await _storageService.deleteFile(data['fileId']);
       }
@@ -131,12 +153,7 @@ class ChatService {
     });
   }
 
-
-  Stream<QuerySnapshot> getMessages(String userID, String otherUserID) {
-    List<String> ids = [userID, otherUserID];
-    ids.sort();
-    String chatRoomID = ids.join('_');
-
+  Stream<QuerySnapshot> getMessages(String chatRoomID) {
     return _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
@@ -158,12 +175,12 @@ class ChatService {
     return _firestore.collection('Users').doc(userID).snapshots();
   }
 
-  Future<void> markMessagesAsRead(String chatRoomID, String receiverID) async {
+  Future<void> markMessagesAsRead(String chatRoomID, String currentUserId) async {
     final querySnapshot = await _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
         .collection("messages")
-        .where('senderID', isEqualTo: receiverID)
+        .where('senderID', isNotEqualTo: currentUserId)
         .where('isRead', isEqualTo: false)
         .get();
 
@@ -180,7 +197,6 @@ class ChatService {
     });
   }
 
-
   Future<void> updateTypingStatus(String chatRoomID, bool isTyping) async {
     final String currentUserID = _auth.currentUser!.uid;
     await _firestore.collection("chat_rooms").doc(chatRoomID).set(
@@ -191,5 +207,4 @@ class ChatService {
   Stream<DocumentSnapshot> getChatRoomStream(String chatRoomID) {
     return _firestore.collection('chat_rooms').doc(chatRoomID).snapshots();
   }
-
 }

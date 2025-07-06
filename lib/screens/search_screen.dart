@@ -54,48 +54,43 @@ class _SearchScreenState extends State<SearchScreen> {
               icon: const Icon(Icons.clear),
               onPressed: () {
                 _searchController.clear();
-                setState(() {
-                  _searchQuery = "";
-                });
               },
             ),
         ],
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: _buildUserList(),
-          ),
-        ],
-      ),
+      body: _buildUserList(),
     );
   }
 
   Widget _buildUserList() {
-    return StreamBuilder(
+    return StreamBuilder<List<Map<String, dynamic>>>(
       stream: _chatService.getUsersStream(),
       builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return const Center(child: Text("Ошибка"));
-        }
+        if (snapshot.hasError) return const Center(child: Text("Ошибка"));
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const Center(child: Text("Нет пользователей."));
+        }
 
         var allUsers = snapshot.data!;
-        List<Map<String, dynamic>> filteredUsers = allUsers.where((user) {
-          if (user['email'] == _auth.currentUser!.email) {
+
+        // Фильтруем пользователей
+        final filteredUsers = allUsers.where((user) {
+          if (user['uid'] == _auth.currentUser!.uid) {
             return false;
           }
-
+          if (_searchQuery.isEmpty) {
+            return true;
+          }
           String username = (user["username"] ?? "").toLowerCase();
           String email = (user["email"] ?? "").toLowerCase();
           String query = _searchQuery.toLowerCase();
-
           return username.contains(query) || email.contains(query);
         }).toList();
 
-        if (filteredUsers.isEmpty && _searchQuery.isNotEmpty) {
+        if (filteredUsers.isEmpty) {
           return const Center(child: Text("Пользователь не найден."));
         }
 
@@ -111,6 +106,7 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Widget _buildUserListItem(Map<String, dynamic> userData, BuildContext context) {
     final String? avatarUrl = userData['avatarUrl'];
+    final String displayName = userData["username"] ?? userData["email"];
 
     return ListTile(
       leading: CircleAvatar(
@@ -121,15 +117,24 @@ class _SearchScreenState extends State<SearchScreen> {
             ? Icon(Icons.person, size: 24, color: Colors.grey.shade800)
             : null,
       ),
-      title: Text(userData["username"] ?? userData["email"]),
-
+      title: Text(displayName),
       onTap: () {
+        final currentUser = _auth.currentUser;
+        if (currentUser == null) return;
+
+        List<String> ids = [currentUser.uid, userData['uid']];
+        ids.sort();
+        String chatRoomId = ids.join('_');
+
         Navigator.push(
           context,
           MaterialPageRoute(
             builder: (context) => ChatScreen(
-              receiverEmail: userData["username"] ?? userData["email"],
+              chatName: displayName,
+              isGroup: false,
+              chatRoomId: chatRoomId,
               receiverID: userData["uid"],
+              receiverEmail: userData["email"],
             ),
           ),
         );

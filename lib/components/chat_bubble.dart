@@ -10,6 +10,7 @@ class ChatBubble extends StatelessWidget {
   final bool isEdited;
   final String? replyToMessage;
   final String? replyToSender;
+  final String? senderName;
   final VoidCallback onLongPress;
   final VoidCallback onReply;
 
@@ -22,6 +23,7 @@ class ChatBubble extends StatelessWidget {
     this.isEdited = false,
     this.replyToMessage,
     this.replyToSender,
+    this.senderName,
     required this.onLongPress,
     required this.onReply,
   });
@@ -30,27 +32,47 @@ class ChatBubble extends StatelessWidget {
   Widget build(BuildContext context) {
     bool isImage = messageType.startsWith('image');
 
-    return GestureDetector(
-      onLongPress: onLongPress,
-      onHorizontalDragUpdate: (details) {
-        if (isCurrentUser ? details.delta.dx < -10 : details.delta.dx > 10) {
-          onReply();
-        }
-      },
-      onTap: isImage ? () => _openFullScreenImage(context) : null,
-      child: Container(
-        decoration: BoxDecoration(
-          color: isCurrentUser ? Colors.green : Colors.grey.shade300,
-          borderRadius: BorderRadius.circular(12),
+    return Column(
+      crossAxisAlignment:
+      isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
+        // Показываем имя отправителя
+        if (senderName != null)
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
+            child: Text(
+              senderName!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ),
+
+        GestureDetector(
+          onLongPress: onLongPress,
+          onHorizontalDragUpdate: (details) {
+            // Свайп для ответа
+            if (isCurrentUser ? details.delta.dx < -10 : details.delta.dx > 10) {
+              onReply();
+            }
+          },
+          onTap: isImage ? () => _openFullScreenImage(context) : null,
+          child: Container(
+            decoration: BoxDecoration(
+              color: isCurrentUser ? Colors.green : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            padding: isImage
+                ? const EdgeInsets.all(3)
+                : const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+            child: isImage ? _buildImageContent(context) : _buildTextContent(),
+          ),
         ),
-        padding: isImage
-            ? const EdgeInsets.all(3)
-            : const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-        child: isImage ? _buildImageContent(context) : _buildTextContent(),
-      ),
+      ],
     );
   }
-
 
   void _openFullScreenImage(BuildContext context) {
     Navigator.of(context).push(
@@ -106,8 +128,7 @@ class ChatBubble extends StatelessWidget {
     Widget imageWidget;
     if (messageType == 'image_local') {
       imageWidget = Image.file(File(message), fit: BoxFit.cover);
-    }
-    else {
+    } else {
       imageWidget = Image.network(
         message,
         fit: BoxFit.cover,
@@ -127,7 +148,7 @@ class ChatBubble extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(9),
-        child: imageWidget, // Просто показываем картинку, без Stack и индикатора
+        child: imageWidget,
       ),
     );
   }
@@ -135,32 +156,44 @@ class ChatBubble extends StatelessWidget {
   Widget _buildTextContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
         if (replyToMessage != null && replyToSender != null) _buildReplyBox(),
-        Text(
-          message,
-          style: TextStyle(color: isCurrentUser ? Colors.white : Colors.black),
-        ),
-        const SizedBox(height: 5),
         Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            if (isEdited)
-              Text(
-                "изм. ",
-                style: TextStyle(
-                  fontSize: 10,
-                  color: (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
-                ),
+            Flexible(
+              child: Text(
+                message,
+                style: TextStyle(color: isCurrentUser ? Colors.white : Colors.black),
               ),
-            if (isCurrentUser)
-              Icon(
-                isRead ? Icons.done_all : Icons.done,
-                size: 16,
-                color: isRead
-                    ? Colors.blue.shade300
-                    : (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
-              ),
+            ),
+            const SizedBox(width: 8),
+            // Статус сообщения
+            Row(
+              children: [
+                if (isEdited)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 4.0),
+                    child: Text(
+                      "изм.",
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
+                      ),
+                    ),
+                  ),
+                if (isCurrentUser)
+                  Icon(
+                    isRead ? Icons.done_all : Icons.done,
+                    size: 16,
+                    color: isRead
+                        ? Colors.blue.shade300
+                        : (isCurrentUser ? Colors.white : Colors.black).withOpacity(0.6),
+                  ),
+              ],
+            )
           ],
         )
       ],
