@@ -29,7 +29,7 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with AutomaticKeepAliveClientMixin {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final ChatService _chatService = ChatService();
@@ -43,6 +43,9 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isLoading = true;
 
   @override
+  bool get wantKeepAlive => true;
+
+  @override
   void initState() {
     super.initState();
     _messageController.addListener(_handleTyping);
@@ -54,9 +57,6 @@ class _ChatScreenState extends State<ChatScreen> {
     _messageController.removeListener(_handleTyping);
     _messageController.dispose();
     _typingTimer?.cancel();
-    if (mounted) {
-      _chatService.updateTypingStatus(widget.chatRoomId, false);
-    }
     _scrollController.dispose();
     super.dispose();
   }
@@ -85,8 +85,6 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!chatRoomDoc.exists || chatRoomDoc.data()?['members'] == null) return;
 
     List<String> memberIds = List<String>.from(chatRoomDoc.data()!['members']);
-
-    // Загружаем данные всех участников параллельно
     var userFutures = memberIds
         .where((id) => !_userCache.containsKey(id))
         .map((id) => FirebaseFirestore.instance.collection('Users').doc(id).get());
@@ -158,6 +156,9 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+
+    super.build(context);
+
     return Scaffold(
       appBar: AppBar(
         title: _isLoading ? const SizedBox.shrink() : _buildAppBarTitle(),
@@ -202,7 +203,7 @@ class _ChatScreenState extends State<ChatScreen> {
           if (!snapshot.hasData || snapshot.data?.data() == null) return Text(widget.chatName);
 
           var userData = snapshot.data!.data() as Map<String, dynamic>;
-          _receiverData = userData; // Always keep receiver data updated
+          _receiverData = userData;
 
           bool isOnline = userData['isOnline'] ?? false;
           String statusText = isOnline ? "в сети" : "не в сети";
@@ -236,7 +237,7 @@ class _ChatScreenState extends State<ChatScreen> {
       stream: _chatService.getMessages(widget.chatRoomId),
       builder: (context, snapshot) {
         if (snapshot.hasError) return const Center(child: Text("Ошибка загрузки"));
-        if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
+        if (!snapshot.hasData) return const SizedBox.shrink();
 
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _chatService.markMessagesAsRead(widget.chatRoomId, _auth.currentUser!.uid);
