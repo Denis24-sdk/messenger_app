@@ -31,58 +31,59 @@ class ChatBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-        crossAxisAlignment:
-        isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-        children: [
+      crossAxisAlignment:
+      isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+      children: [
         if (senderName != null && !isCurrentUser)
-    Padding(
-      padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
-      child: Text(
-        senderName!,
-        style: const TextStyle(
-          fontSize: 12.5,
-          fontWeight: FontWeight.w500,
-          color: Color(0xFF525B67),
-        ),
-      ),
-      GestureDetector(
-        onLongPress: onLongPress,
-        onHorizontalDragUpdate: (details) {
-          if (isCurrentUser && details.delta.dx < -10 ||
-              !isCurrentUser && details.delta.dx > 10) {
-            onReply();
-          }
-        },
-        child: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.78,
-          ),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 1.5),
-            decoration: BoxDecoration(
-              color: isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white,
-              borderRadius: _getBorderRadius(),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x0A000000),
-                  blurRadius: 1.5,
-                  offset: Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (replyToMessage != null) _buildReplyHeader(),
-                if (messageType.startsWith('image'))
-                  _buildImageContent(context)
-                else
-                  _buildTextContent(),
-              ],
+          Padding(
+            padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
+            child: Text(
+              senderName!,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF525B67),
+              ),
             ),
           ),
+        GestureDetector(
+          onLongPress: onLongPress,
+          onHorizontalDragUpdate: (details) {
+            if ((isCurrentUser && details.delta.dx < -10) ||
+                (!isCurrentUser && details.delta.dx > 10)) {
+              onReply();
+            }
+          },
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width * 0.78,
+            ),
+            child: Container(
+              margin: const EdgeInsets.only(bottom: 1.5),
+              decoration: BoxDecoration(
+                color: isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white,
+                borderRadius: _getBorderRadius(),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x0A000000),
+                    blurRadius: 1.5,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (replyToMessage != null) _buildReplyHeader(),
+                  if (messageType.startsWith('image'))
+                    _buildImageContent(context)
+                  else
+                    _buildTextContent(),
+                ],
+              ),
+            ),
+          ),
         ),
-      ),
       ],
     );
   }
