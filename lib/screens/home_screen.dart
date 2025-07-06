@@ -8,12 +8,23 @@ import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:messenger_flutter/screens/chat_screen.dart';
 
-class HomeScreen extends StatelessWidget {
-  HomeScreen({super.key});
 
+enum ChatFilter { all, private, group }
+
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
   final ChatService _chatService = ChatService();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  // Переменная для хранения текущего фильтра
+  ChatFilter _currentFilter = ChatFilter.all;
 
   void signOut(BuildContext context) async {
     showDialog(
@@ -21,16 +32,17 @@ class HomeScreen extends StatelessWidget {
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
-
     try {
       await _chatService.updateUserStatus(false);
       await _auth.signOut();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString())),
+        );
+      }
     } finally {
-      if (Navigator.of(context).canPop()) {
+      if (mounted && Navigator.of(context).canPop()) {
         Navigator.of(context).pop();
       }
     }
@@ -69,7 +81,14 @@ class HomeScreen extends StatelessWidget {
           )
         ],
       ),
-      body: _buildChatList(),
+      body: Column(
+        children: [
+          _buildFilterButtons(),
+          Expanded(
+            child: _buildChatList(),
+          ),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Navigator.push(
@@ -78,6 +97,44 @@ class HomeScreen extends StatelessWidget {
                   builder: (context) => const CreateGroupScreen()));
         },
         child: const Icon(Icons.group_add),
+      ),
+    );
+  }
+
+  Widget _buildFilterButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _buildFilterButton("Все", ChatFilter.all),
+          _buildFilterButton("ЛС", ChatFilter.private),
+          _buildFilterButton("Группы", ChatFilter.group),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterButton(String text, ChatFilter filter) {
+    bool isSelected = _currentFilter == filter;
+    return TextButton(
+      onPressed: () {
+        setState(() {
+          _currentFilter = filter;
+        });
+      },
+      style: TextButton.styleFrom(
+        backgroundColor: isSelected ? Theme.of(context).primaryColor.withOpacity(0.1) : Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+          color: isSelected ? Theme.of(context).primaryColor : Colors.grey.shade600,
+        ),
       ),
     );
   }
@@ -95,8 +152,28 @@ class HomeScreen extends StatelessWidget {
         if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
           return const Center(child: Text("Нет активных чатов."));
         }
+
+        // фильрация: все, лс и группы
+        final filteredDocs = snapshot.data!.docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final isGroup = data['isGroup'] ?? false;
+
+          switch (_currentFilter) {
+            case ChatFilter.all:
+              return true;
+            case ChatFilter.private:
+              return !isGroup;
+            case ChatFilter.group:
+              return isGroup;
+          }
+        }).toList();
+
+        if (filteredDocs.isEmpty) {
+          return const Center(child: Text("В этой категории нет чатов."));
+        }
+
         return ListView(
-          children: snapshot.data!.docs
+          children: filteredDocs
               .map<Widget>((doc) => _buildChatListItem(doc, context))
               .toList(),
         );
@@ -108,11 +185,9 @@ class HomeScreen extends StatelessWidget {
     Map<String, dynamic> chatData = chatDoc.data() as Map<String, dynamic>;
     bool isGroup = chatData['isGroup'] ?? false;
 
-    if (isGroup) {
-      return _buildGroupChatItem(chatDoc, context);
-    } else {
-      return _buildPrivateChatItem(chatDoc, context);
-    }
+    return isGroup
+        ? _buildGroupChatItem(chatDoc, context)
+        : _buildPrivateChatItem(chatDoc, context);
   }
 
   Widget _buildGroupChatItem(DocumentSnapshot chatDoc, BuildContext context) {
@@ -167,7 +242,14 @@ class HomeScreen extends StatelessWidget {
     return FutureBuilder<DocumentSnapshot>(
       future: _firestore.collection('Users').doc(otherUserID).get(),
       builder: (context, userSnapshot) {
-        if (!userSnapshot.hasData) return const ListTile();
+        if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
+          // Показываем заглушку, пока данные грузятся, чтобы избежать прыжков
+          return ListTile(
+            leading: CircleAvatar(radius: 24, backgroundColor: Colors.grey.shade300),
+            title: Container(height: 16, width: 100, color: Colors.grey.shade300),
+            subtitle: Container(height: 12, width: 150, color: Colors.grey.shade300),
+          );
+        }
 
         Map<String, dynamic> userData = userSnapshot.data!.data() as Map<String, dynamic>;
         String chatName = userData['username'] ?? userData['email'];
