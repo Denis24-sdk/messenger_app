@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:messenger_flutter/components/chat_bubble.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
@@ -156,7 +157,6 @@ class _ChatScreenState extends State<ChatScreen> with AutomaticKeepAliveClientMi
 
   @override
   Widget build(BuildContext context) {
-
     super.build(context);
 
     return Scaffold(
@@ -239,8 +239,14 @@ class _ChatScreenState extends State<ChatScreen> with AutomaticKeepAliveClientMi
         if (snapshot.hasError) return const Center(child: Text("Ошибка загрузки"));
         if (!snapshot.hasData) return const SizedBox.shrink();
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _chatService.markMessagesAsRead(widget.chatRoomId, _auth.currentUser!.uid);
+        SchedulerBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _chatService.markMessagesAsRead(widget.chatRoomId, _auth.currentUser!.uid);
+
+            if (_scrollController.hasClients) {
+              _scrollController.jumpTo(0.0);
+            }
+          }
         });
 
         return ListView.builder(
