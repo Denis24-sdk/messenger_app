@@ -3,13 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:messenger_flutter/models/chat_room.dart';
 import 'package:messenger_flutter/providers/home_provider.dart';
-import 'package:messenger_flutter/screens/account_screen.dart';
+import 'package:messenger_flutter/screens/account_screen_wrapper.dart';
+import 'package:messenger_flutter/screens/create_group_screen_wrapper.dart';
 import 'package:messenger_flutter/screens/search_screen.dart';
 import 'package:messenger_flutter/screens/chat_screen_wrapper.dart';
 import 'package:messenger_flutter/services/auth_service.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
-import 'package:messenger_flutter/screens/create_group_screen_wrapper.dart';
 import 'package:provider/provider.dart';
+
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
@@ -24,7 +25,7 @@ class HomeScreen extends StatelessWidget {
       appBar: AppBar(
         leading: IconButton(
           onPressed: () => Navigator.push(context,
-              MaterialPageRoute(builder: (context) => const AccountScreen())),
+              MaterialPageRoute(builder: (context) => const AccountScreenWrapper())),
           icon: const Icon(Icons.person),
         ),
         title: const Text("Чаты"),
@@ -52,12 +53,10 @@ class HomeScreen extends StatelessWidget {
         ],
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const CreateGroupScreenWrapper()));
-        },
+        onPressed: () => Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => const CreateGroupScreenWrapper())),
         child: const Icon(Icons.group_add),
       ),
     );
@@ -194,12 +193,14 @@ class _PrivateChatItem extends StatelessWidget {
     final chatService = context.read<ChatService>();
     final currentUserId = context.read<AuthService>().user!.uid;
 
-    if (chatRoom.otherUserId == null || chatRoom.otherUserId!.isEmpty) {
+    if (chatRoom.members.length != 2 || !chatRoom.members.contains(currentUserId)) {
       return const SizedBox.shrink();
     }
 
+    final String otherUserID = chatRoom.members.firstWhere((id) => id != currentUserId);
+
     return StreamBuilder<DocumentSnapshot>(
-      stream: chatService.getUserStream(chatRoom.otherUserId!),
+      stream: chatService.getUserStream(otherUserID),
       builder: (context, userSnapshot) {
         if (!userSnapshot.hasData || userSnapshot.data?.data() == null) {
           return const _ChatItemPlaceholder();
