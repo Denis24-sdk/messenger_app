@@ -16,6 +16,8 @@ class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   void _signOut(BuildContext context) {
+    final homeProvider = context.read<HomeProvider>();
+    homeProvider.cancelSubscription();
     context.read<AuthService>().signOut();
   }
 

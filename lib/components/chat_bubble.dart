@@ -14,8 +14,6 @@ class ChatBubble extends StatelessWidget {
   final VoidCallback onLongPress;
   final VoidCallback onReply;
 
-  final double imageScaleFactor;
-
   const ChatBubble({
     super.key,
     required this.message,
@@ -28,7 +26,6 @@ class ChatBubble extends StatelessWidget {
     this.senderName,
     required this.onLongPress,
     required this.onReply,
-    this.imageScaleFactor = 0.8,
   });
 
   @override
@@ -57,44 +54,43 @@ class ChatBubble extends StatelessWidget {
         GestureDetector(
           onLongPress: onLongPress,
           onHorizontalDragUpdate: (details) {
-            if ((isCurrentUser && details.delta.dx < -10) ||
-                (!isCurrentUser && details.delta.dx > 10)) {
-              onReply();
+            if (details.primaryDelta != null && details.primaryDelta!.abs() > 2) {
+              if ((isCurrentUser && details.primaryDelta! < 0) ||
+                  (!isCurrentUser && details.primaryDelta! > 0)) {
+                onReply();
+              }
             }
           },
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: bubbleMaxWidth,
+          child: Container(
+            margin: const EdgeInsets.symmetric(vertical: 2.0),
+            constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+            decoration: BoxDecoration(
+              color: bubbleColor,
+              borderRadius: _getBubbleBorderRadius(),
             ),
-            child: Container(
-              margin: const EdgeInsets.only(bottom: 1.5),
-              decoration: BoxDecoration(
-                color: bubbleColor,
-                borderRadius: _getBubbleBorderRadius(),
-              ),
-              child: ClipRRect(
-                borderRadius: _getBubbleBorderRadius(),
-                child: Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        if (replyToMessage != null) _buildReplyHeader(),
-                        if (isImage)
-                          _buildImageContent(context, bubbleMaxWidth * imageScaleFactor)
-                        else
-                          _buildTextContent(),
-                      ],
-                    ),
-                    Padding(
-                      padding: isImage
-                          ? const EdgeInsets.all(5.0)
-                          : const EdgeInsets.fromLTRB(0, 0, 8, 6),
-                      child: _buildStatusIndicator(isForImage: isImage),
-                    ),
-                  ],
-                ),
+            child: ClipRRect(
+              borderRadius: _getBubbleBorderRadius(),
+              child: Stack(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (replyToMessage != null) _buildReplyHeader(),
+                      if (isImage)
+                        _buildImageContent(context)
+                      else
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(10, 8, isEdited ? 60 : 35, 6),
+                          child: _buildTextContent(),
+                        ),
+                    ],
+                  ),
+                  Positioned(
+                    bottom: isImage ? 5 : 4,
+                    right: isImage ? 5 : 8,
+                    child: _buildStatusIndicator(isForImage: isImage),
+                  ),
+                ],
               ),
             ),
           ),
@@ -106,31 +102,35 @@ class ChatBubble extends StatelessWidget {
   BorderRadius _getBubbleBorderRadius() {
     return isCurrentUser
         ? const BorderRadius.only(
-      topLeft: Radius.circular(12),
-      bottomLeft: Radius.circular(12),
+      topLeft: Radius.circular(16),
+      bottomLeft: Radius.circular(16),
       topRight: Radius.circular(4),
-      bottomRight: Radius.circular(12),
+      bottomRight: Radius.circular(16),
     )
         : const BorderRadius.only(
-      topRight: Radius.circular(12),
-      bottomRight: Radius.circular(12),
+      topRight: Radius.circular(16),
+      bottomRight: Radius.circular(16),
       topLeft: Radius.circular(4),
-      bottomLeft: Radius.circular(12),
+      bottomLeft: Radius.circular(16),
     );
   }
 
+
   Widget _buildReplyHeader() {
-    final bool isImageReply = replyToMessage!.contains('image') ||
-        replyToMessage!.contains('http');
+    final bool isImageReply = replyToMessage!.startsWith('📷');
     final Color replyColor =
     isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC);
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      margin: const EdgeInsets.fromLTRB(2, 2, 2, 6),
       decoration: BoxDecoration(
-        color: const Color(0xFFF2FBF7).withOpacity(0.9),
-        border: Border(left: BorderSide(color: replyColor, width: 2.5)),
+        color: isCurrentUser
+            ? const Color(0xFFD5F0C2)
+            : const Color(0xFFE6E8EA),
+        borderRadius: BorderRadius.circular(10),
+        border: Border(left: BorderSide(color: replyColor, width: 3)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,46 +159,56 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-
-  Widget _buildImageContent(BuildContext context, double scaledImageWidth) {
-    final int cacheSize = scaledImageWidth.round();
-
+  Widget _buildImageContent(BuildContext context) {
     return GestureDetector(
       onTap: () => _openFullScreenImage(context),
       child: Padding(
-        padding: const EdgeInsets.all(2.0),
+        padding: const EdgeInsets.all(2.5),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(8),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxWidth: scaledImageWidth,
-            ),
-            child: _getImageWidget(cacheSize),
-          ),
+          borderRadius: BorderRadius.circular(12),
+          child: _getImageWidget(),
         ),
       ),
     );
   }
 
-  Widget _getImageWidget(int cacheSize) {
-    // Shared parameters for Image
-    final Image imageWidget = messageType == 'image_local'
-        ? Image.file(
-      File(message),
-      fit: BoxFit.fitWidth,
-      cacheWidth: cacheSize,
-      gaplessPlayback: true,
-    )
-        : Image.network(
+  Widget _getImageWidget() {
+    final ImageProvider imageProvider = messageType == 'image_local'
+        ? FileImage(File(message))
+        : NetworkImage(message);
+
+    if (messageType == 'image_local') {
+      return Stack(
+        children: [
+          Image(image: imageProvider, fit: BoxFit.cover),
+          Positioned.fill(
+            child: Container(color: Colors.black.withOpacity(0.4)),
+          ),
+          const Positioned.fill(
+            child: Center(
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(
+                    color: Colors.white, strokeWidth: 2.5),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Image.network(
       message,
-      fit: BoxFit.fitWidth,
-      cacheWidth: cacheSize,
+      fit: BoxFit.cover,
       gaplessPlayback: true,
+      cacheWidth: 600,
       frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
         if (wasSynchronouslyLoaded) return child;
         return AnimatedOpacity(
           opacity: frame == null ? 0 : 1,
           duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
           child: child,
         );
       },
@@ -208,25 +218,6 @@ class ChatBubble extends StatelessWidget {
       },
       errorBuilder: (context, error, stackTrace) => _errorPlaceholder(),
     );
-
-    if (messageType == 'image_local') {
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          imageWidget,
-          Container(color: Colors.black.withOpacity(0.4)),
-          const Center(
-            child: SizedBox(
-              width: 28,
-              height: 28,
-              child:
-              CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
-            ),
-          ),
-        ],
-      );
-    }
-    return imageWidget;
   }
 
   Widget _errorPlaceholder() {
@@ -239,53 +230,36 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _buildTextContent() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(6, 28, 8, 6),
-      child: Text(
-        message,
-        style: const TextStyle(
-          fontSize: 15.5,
-          color: Colors.black87,
-          height: 1.25,
-        ),
+    return Text(
+      message,
+      style: const TextStyle(
+        fontSize: 15.5,
+        color: Colors.black87,
+        height: 1.3,
       ),
     );
   }
 
   Widget _buildStatusIndicator({bool isForImage = false}) {
     final Color statusColor =
-    isForImage ? Colors.white : const Color(0xFFA0A6B1);
+    isForImage ? Colors.white.withOpacity(0.8) : const Color(0xFFA0A6B1);
     final Color readColor =
     isForImage ? const Color(0xFF6BC7FF) : const Color(0xFF3A9EFF);
 
     return Row(
       mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         if (isEdited)
-          const Padding(
-            padding: EdgeInsets.only(bottom: 1.5),
-            child: Text(
-              "изм.",
-              style: TextStyle(
-                fontSize: 11,
-                color: Color(0xFFA0A6B1),
-                fontWeight: FontWeight.w400,
-              ),
-            ),
+          Text(
+            "изм. ",
+            style: TextStyle(fontSize: 11, color: statusColor),
           ),
         if (isCurrentUser)
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(width: 3),
-              Icon(
-                isRead ? Icons.done_all : Icons.done,
-                size: 15,
-                color: isRead ? readColor : statusColor,
-              ),
-            ],
-          )
+          Icon(
+            isRead ? Icons.done_all : Icons.done,
+            size: 15,
+            color: isRead ? readColor : statusColor,
+          ),
       ],
     );
   }
@@ -296,31 +270,31 @@ class ChatBubble extends StatelessWidget {
     Navigator.of(context).push(
       PageRouteBuilder(
         opaque: false,
-        pageBuilder: (context, animation, secondaryAnimation) => Scaffold(
-          backgroundColor: Colors.black.withOpacity(animation.value),
-          body: SafeArea(
-            child: Stack(
-              children: [
-                PhotoView(
-                  imageProvider: NetworkImage(message),
-                  backgroundDecoration:
-                  const BoxDecoration(color: Colors.transparent),
-                  loadingBuilder: (context, event) => const Center(
-                    child: CircularProgressIndicator(color: Colors.white),
+        pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+          opacity: animation,
+          child: Scaffold(
+            backgroundColor: Colors.black.withOpacity(0.85),
+            body: SafeArea(
+              child: Stack(
+                children: [
+                  PhotoView(
+                    imageProvider: NetworkImage(message),
+                    backgroundDecoration:
+                    const BoxDecoration(color: Colors.transparent),
+                    loadingBuilder: (context, event) => const Center(
+                      child: CircularProgressIndicator(color: Colors.white),
+                    ),
                   ),
-                ),
-                Positioned(
-                  top: 10,
-                  left: 10,
-                  child: Material(
-                    color: Colors.transparent,
+                  Positioned(
+                    top: 10,
+                    left: 10,
                     child: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(Icons.close, color: Colors.white, size: 28),
                       onPressed: () => Navigator.of(context).pop(),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
