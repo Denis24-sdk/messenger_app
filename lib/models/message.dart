@@ -13,6 +13,7 @@ class Message {
   final String? replyToSender;
   final bool isEdited;
   final bool isRead;
+  final double? aspectRatio;
 
   Message({
     this.id,
@@ -27,6 +28,7 @@ class Message {
     this.replyToSender,
     this.isEdited = false,
     this.isRead = false,
+    this.aspectRatio,
   });
 
   factory Message.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +46,7 @@ class Message {
       replyToSender: data['replyToSender'],
       isEdited: data['isEdited'] ?? false,
       isRead: data['isRead'] ?? false,
+      aspectRatio: (data['aspectRatio'] as num?)?.toDouble(),
     );
   }
 
@@ -60,6 +63,7 @@ class Message {
       'replyToSender': replyToSender,
       'isEdited': isEdited,
       'isRead': isRead,
+      'aspectRatio': aspectRatio,
     };
   }
 }

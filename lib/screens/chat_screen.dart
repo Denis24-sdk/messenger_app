@@ -450,6 +450,7 @@ class _MessageListState extends State<_MessageList> {
         timestamp: message.timestamp,
         isRead: message.isRead,
         isEdited: message.isEdited,
+        aspectRatio: message.aspectRatio,
         onLongPress: () => _showMessageOptions(context, message),
         onReply: () => widget.onReply(message),
       ),

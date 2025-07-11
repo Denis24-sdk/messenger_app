@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -14,6 +15,7 @@ class ChatBubble extends StatefulWidget {
   final String? replyToMessage;
   final String? replyToSender;
   final String? senderName;
+  final double? aspectRatio;
   final VoidCallback onLongPress;
   final VoidCallback onReply;
 
@@ -28,6 +30,7 @@ class ChatBubble extends StatefulWidget {
     this.replyToMessage,
     this.replyToSender,
     this.senderName,
+    this.aspectRatio,
     required this.onLongPress,
     required this.onReply,
   });
@@ -73,12 +76,9 @@ class _ChatBubbleState extends State<ChatBubble> {
           },
           onHorizontalDragUpdate: (details) {
             _draggedDistance += details.delta.dx;
-
             bool isSwipeRight = _draggedDistance > _replySwipeThreshold;
             bool isSwipeLeft = _draggedDistance < -_replySwipeThreshold;
-
             if (_replyTriggered) return;
-
             if (!widget.isCurrentUser && isSwipeRight) {
               widget.onReply();
               _replyTriggered = true;
@@ -191,57 +191,58 @@ class _ChatBubbleState extends State<ChatBubble> {
         padding: const EdgeInsets.all(2.5),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(12),
-          child: _getImageWidget(),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.4,
+            ),
+            child: _getImageWidget(),
+          ),
         ),
       ),
     );
   }
 
   Widget _getImageWidget() {
-    final ImageProvider imageProvider = widget.messageType == 'image_local'
-        ? FileImage(File(widget.message))
-        : NetworkImage(widget.message);
-
     if (widget.messageType == 'image_local') {
-      return Stack(
-        children: [
-          Image(image: imageProvider, fit: BoxFit.cover),
-          Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.4)),
-          ),
-          const Positioned.fill(
-            child: Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(
-                    color: Colors.white, strokeWidth: 2.5),
+      return AspectRatio(
+        aspectRatio: widget.aspectRatio ?? 1.0,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            Image.file(File(widget.message), fit: BoxFit.cover),
+            Positioned.fill(child: Container(color: Colors.black.withOpacity(0.4))),
+            const Positioned.fill(
+              child: Center(
+                child: SizedBox(
+                  width: 28, height: 28,
+                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2.5),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
-    return Image.network(
-      widget.message,
+    int memCacheWidth = (100 * MediaQuery.of(context).devicePixelRatio).round();
+
+    return CachedNetworkImage(
+      imageUrl: widget.message,
+      memCacheWidth: memCacheWidth,
       fit: BoxFit.cover,
-      gaplessPlayback: true,
-      cacheWidth: 600,
-      frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-        if (wasSynchronouslyLoaded) return child;
-        return AnimatedOpacity(
-          opacity: frame == null ? 0 : 1,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-          child: child,
-        );
-      },
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return const Center(child: CircularProgressIndicator(strokeWidth: 2));
-      },
-      errorBuilder: (context, error, stackTrace) => _errorPlaceholder(),
+      placeholder: (context, url) => AspectRatio(
+        aspectRatio: widget.aspectRatio ?? 16 / 9,
+        child: Container(
+          color: const Color(0xFFF0F0F0),
+          child: const Center(child: CircularProgressIndicator(strokeWidth: 2.0)),
+        ),
+      ),
+      errorWidget: (context, url, error) => AspectRatio(
+        aspectRatio: widget.aspectRatio ?? 1.0,
+        child: _errorPlaceholder(),
+      ),
+      fadeInDuration: const Duration(milliseconds: 150),
+      fadeOutDuration: const Duration(milliseconds: 150),
     );
   }
 
@@ -314,7 +315,10 @@ class _ChatBubbleState extends State<ChatBubble> {
               child: Stack(
                 children: [
                   PhotoView(
-                    imageProvider: NetworkImage(widget.message),
+                    imageProvider: CachedNetworkImageProvider(
+                      widget.message,
+                      maxWidth: 1080,
+                    ),
                     backgroundDecoration:
                     const BoxDecoration(color: Colors.transparent),
                     loadingBuilder: (context, event) => const Center(
