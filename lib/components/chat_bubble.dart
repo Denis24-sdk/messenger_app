@@ -1,11 +1,14 @@
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:photo_view/photo_view.dart';
 
 class ChatBubble extends StatefulWidget {
   final String message;
   final String messageType;
   final bool isCurrentUser;
+  final Timestamp timestamp;
   final bool isRead;
   final bool isEdited;
   final String? replyToMessage;
@@ -19,6 +22,7 @@ class ChatBubble extends StatefulWidget {
     required this.message,
     required this.messageType,
     required this.isCurrentUser,
+    required this.timestamp,
     required this.isRead,
     this.isEdited = false,
     this.replyToMessage,
@@ -36,7 +40,6 @@ class _ChatBubbleState extends State<ChatBubble> {
   double _draggedDistance = 0;
   bool _replyTriggered = false;
 
-  // настройки длины свайпа по сообщению для ответа
   static const double _replySwipeThreshold = 40.0;
 
   @override
@@ -103,7 +106,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                         _buildImageContent(context)
                       else
                         Padding(
-                          padding: EdgeInsets.fromLTRB(10, 8, widget.isEdited ? 60 : 35, 6),
+                          padding: EdgeInsets.fromLTRB(10, 8, widget.isEdited ? 90 : 65, 6),
                           child: _buildTextContent(),
                         ),
                     ],
@@ -268,6 +271,8 @@ class _ChatBubbleState extends State<ChatBubble> {
     final Color readColor =
     isForImage ? const Color(0xFF6BC7FF) : const Color(0xFF3A9EFF);
 
+    final String formattedTime = DateFormat('HH:mm').format(widget.timestamp.toDate());
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -276,12 +281,21 @@ class _ChatBubbleState extends State<ChatBubble> {
             "изм. ",
             style: TextStyle(fontSize: 11, color: statusColor),
           ),
+        Text(
+          formattedTime,
+          style: TextStyle(fontSize: 11, color: statusColor),
+        ),
         if (widget.isCurrentUser)
-          Icon(
-            widget.isRead ? Icons.done_all : Icons.done,
-            size: 15,
-            color: widget.isRead ? readColor : statusColor,
-          ),
+          Row(
+            children: [
+              const SizedBox(width: 3),
+              Icon(
+                widget.isRead ? Icons.done_all : Icons.done,
+                size: 15,
+                color: widget.isRead ? readColor : statusColor,
+              ),
+            ],
+          )
       ],
     );
   }

@@ -447,6 +447,7 @@ class _MessageListState extends State<_MessageList> {
         replyToMessage: message.replyToMessage,
         replyToSender: message.replyToSender,
         isCurrentUser: isCurrentUser,
+        timestamp: message.timestamp,
         isRead: message.isRead,
         isEdited: message.isEdited,
         onLongPress: () => _showMessageOptions(context, message),
