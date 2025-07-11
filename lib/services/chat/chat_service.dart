@@ -14,6 +14,29 @@ class ChatService {
       : _firestore = firestore,
         _auth = auth;
 
+  Future<String> createPrivateChatRoomIfNeeded(String otherUserID) async {
+    final currentUserID = _auth.currentUser!.uid;
+    List<String> ids = [currentUserID, otherUserID];
+    ids.sort();
+    String chatRoomID = ids.join('_');
+
+    final chatRoomRef = _firestore.collection('chat_rooms').doc(chatRoomID);
+    final docSnapshot = await chatRoomRef.get();
+
+    if (!docSnapshot.exists) {
+      await chatRoomRef.set({
+        'chatRoomId': chatRoomID,
+        'members': ids,
+        'isGroup': false,
+        'lastMessage': null,
+        'lastMessageSenderId': null,
+        'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+    }
+    return chatRoomID;
+  }
+
   Stream<List<Map<String, dynamic>>> getUsersStream() {
     return _firestore
         .collection("Users")
@@ -86,13 +109,11 @@ class ChatService {
     DocumentReference chatRoomRef =
     _firestore.collection("chat_rooms").doc(chatRoomID);
 
-    await chatRoomRef.set({
-      'members': [currentUserID, receiverID],
-      'isGroup': false,
+    await chatRoomRef.update({
       'lastMessage': messageText,
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
-    }, SetOptions(merge: true));
+    });
 
     await chatRoomRef.collection("messages").add(newMessage.toMap());
   }
@@ -114,11 +135,11 @@ class ChatService {
     DocumentReference chatRoomRef =
     _firestore.collection("chat_rooms").doc(chatRoomID);
 
-    await chatRoomRef.set({
+    await chatRoomRef.update({
       'lastMessage': "📷 Изображение",
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
-    }, SetOptions(merge: true));
+    });
 
     return await chatRoomRef.collection("messages").add(newMessage.toMap());
   }

@@ -1,6 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
 
 class CreateGroupProvider with ChangeNotifier {
   final ChatService _chatService;
@@ -17,8 +19,40 @@ class CreateGroupProvider with ChangeNotifier {
   bool get isLoading => _isLoading;
 
   Stream<List<Map<String, dynamic>>> getUsersStream() {
-    return _chatService.getUsersStream().map((users) =>
-        users.where((user) => user['uid'] != _auth.currentUser!.uid).toList());
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) {
+      return Stream.value([]);
+    }
+
+    // Получаем поток чатов текущего пользователя
+    return FirebaseFirestore.instance
+        .collection('chat_rooms')
+        .where('members', arrayContains: currentUser.uid)
+        .snapshots()
+        .asyncExpand((querySnapshot) {
+
+      final chatPartnerIds = <String>{};
+      for (var doc in querySnapshot.docs) {
+        final members = List<String>.from(doc.data()['members'] ?? []);
+        for (var memberId in members) {
+          if (memberId != currentUser.uid) {
+            chatPartnerIds.add(memberId);
+          }
+        }
+      }
+
+      if (chatPartnerIds.isEmpty) {
+        return Stream.value([]);
+      }
+
+      // Получаем поток всех пользователей и фильтруем его
+      return _chatService.getUsersStream().map((users) {
+        return users.where((user) {
+          final uid = user['uid'];
+          return uid != currentUser.uid && chatPartnerIds.contains(uid);
+        }).toList();
+      });
+    });
   }
 
   void toggleUserSelection(String uid, Map<String, dynamic> userData) {
@@ -42,7 +76,13 @@ class CreateGroupProvider with ChangeNotifier {
     notifyListeners();
 
     try {
-      List<String> memberIds = _selectedUsers.keys.toList();
+      // Добавляем текущего пользователя в список участников группы
+      final currentUserId = _auth.currentUser!.uid;
+      final memberIds = _selectedUsers.keys.toList();
+      if (!memberIds.contains(currentUserId)) {
+        memberIds.add(currentUserId);
+      }
+
       await _chatService.createGroupChat(groupName.trim(), memberIds);
     } finally {
       _isLoading = false;

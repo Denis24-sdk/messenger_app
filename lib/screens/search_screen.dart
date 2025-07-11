@@ -102,6 +102,7 @@ class _UserListItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.read<FirebaseAuth>();
+    final chatService = context.read<ChatService>();
     final String? avatarUrl = userData['avatarUrl'];
     final String displayName = userData["username"] ?? userData["email"];
 
@@ -115,26 +116,27 @@ class _UserListItem extends StatelessWidget {
             : null,
       ),
       title: Text(displayName),
-      onTap: () {
+      onTap: () async {
         final currentUser = auth.currentUser;
         if (currentUser == null) return;
 
-        List<String> ids = [currentUser.uid, userData['uid']];
-        ids.sort();
-        String chatRoomId = ids.join('_');
+        final otherUserUid = userData['uid'];
+        final String chatRoomId = await chatService.createPrivateChatRoomIfNeeded(otherUserUid);
 
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreenWrapper(
-              chatName: displayName,
-              isGroup: false,
-              chatRoomId: chatRoomId,
-              receiverID: userData["uid"],
-              receiverEmail: userData["email"],
+        if (context.mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ChatScreenWrapper(
+                chatName: displayName,
+                isGroup: false,
+                chatRoomId: chatRoomId,
+                receiverID: userData["uid"],
+                receiverEmail: userData["email"],
+              ),
             ),
-          ),
-        );
+          );
+        }
       },
     );
   }
