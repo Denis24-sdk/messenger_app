@@ -129,35 +129,89 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _openReceiverProfile(BuildContext context) {
-    if (widget.isGroup) return;
-    final receiverData = context.read<ChatProvider>().receiverData;
-    if (receiverData == null) return;
+    if (widget.isGroup || widget.receiverID == null) return;
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        contentPadding: const EdgeInsets.all(20),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            CircleAvatar(
-              radius: 50,
-              backgroundImage: receiverData['avatarUrl'] != null
-                  ? NetworkImage(receiverData['avatarUrl'])
-                  : null,
-              child: receiverData['avatarUrl'] == null
-                  ? const Icon(Icons.person, size: 50)
-                  : null,
-            ),
-            const SizedBox(height: 16),
-            Text(receiverData['username'] ?? widget.chatName,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(widget.receiverEmail ?? '',
-                style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
+      builder: (dialogContext) {
+        return StreamBuilder<DocumentSnapshot>(
+          stream: context.read<ChatService>().getUserStream(widget.receiverID!),
+          builder: (context, snapshot) {
+            if (!snapshot.hasData || snapshot.data?.data() == null) {
+              return const AlertDialog(
+                content: Center(child: CircularProgressIndicator()),
+              );
+            }
+
+            final userData = snapshot.data!.data() as Map<String, dynamic>;
+            final String? avatarUrl = userData['avatarUrl'];
+            final String username = userData['username'] ?? widget.chatName;
+            final String? bio = userData['bio'];
+            final bool isOnline = userData['isOnline'] ?? false;
+            final bool hasBio = bio != null && bio.isNotEmpty;
+
+            return AlertDialog(
+              contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+
+                  Stack(
+                    children: [
+                      CircleAvatar(
+                        radius: 50,
+                        backgroundColor: Colors.grey.shade300,
+                        backgroundImage:
+                        avatarUrl != null ? NetworkImage(avatarUrl) : null,
+                        child: avatarUrl == null
+                            ? const Icon(Icons.person, size: 50)
+                            : null,
+                      ),
+
+                      if (isOnline)
+                        Positioned(
+                          bottom: 2,
+                          right: 2,
+                          child: Container(
+                            width: 15,
+                            height: 15,
+                            decoration: BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: Theme.of(context).dialogBackgroundColor,
+                                  width: 2),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    username,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                        fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+
+                  Text(
+                    hasBio ? bio : 'Описание отсутствует',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: hasBio ? Colors.black87 : Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:photo_view/photo_view.dart';
 
-class ChatBubble extends StatelessWidget {
+class ChatBubble extends StatefulWidget {
   final String message;
   final String messageType;
   final bool isCurrentUser;
@@ -29,21 +29,32 @@ class ChatBubble extends StatelessWidget {
   });
 
   @override
+  State<ChatBubble> createState() => _ChatBubbleState();
+}
+
+class _ChatBubbleState extends State<ChatBubble> {
+  double _draggedDistance = 0;
+  bool _replyTriggered = false;
+
+  // настройки длины свайпа по сообщению для ответа
+  static const double _replySwipeThreshold = 40.0;
+
+  @override
   Widget build(BuildContext context) {
-    final bool isImage = messageType.startsWith('image');
-    final bubbleColor = isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white;
+    final bool isImage = widget.messageType.startsWith('image');
+    final bubbleColor = widget.isCurrentUser ? const Color(0xFFE2F7CB) : Colors.white;
     final bubbleAlignment =
-    isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
+    widget.isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final double bubbleMaxWidth = MediaQuery.of(context).size.width * 0.78;
 
     return Column(
       crossAxisAlignment: bubbleAlignment,
       children: [
-        if (senderName != null && !isCurrentUser)
+        if (widget.senderName != null && !widget.isCurrentUser)
           Padding(
             padding: const EdgeInsets.only(left: 12.0, bottom: 4.0),
             child: Text(
-              senderName!,
+              widget.senderName!,
               style: const TextStyle(
                 fontSize: 12.5,
                 fontWeight: FontWeight.w500,
@@ -52,13 +63,25 @@ class ChatBubble extends StatelessWidget {
             ),
           ),
         GestureDetector(
-          onLongPress: onLongPress,
+          onLongPress: widget.onLongPress,
+          onHorizontalDragStart: (details) {
+            _draggedDistance = 0;
+            _replyTriggered = false;
+          },
           onHorizontalDragUpdate: (details) {
-            if (details.primaryDelta != null && details.primaryDelta!.abs() > 2) {
-              if ((isCurrentUser && details.primaryDelta! < 0) ||
-                  (!isCurrentUser && details.primaryDelta! > 0)) {
-                onReply();
-              }
+            _draggedDistance += details.delta.dx;
+
+            bool isSwipeRight = _draggedDistance > _replySwipeThreshold;
+            bool isSwipeLeft = _draggedDistance < -_replySwipeThreshold;
+
+            if (_replyTriggered) return;
+
+            if (!widget.isCurrentUser && isSwipeRight) {
+              widget.onReply();
+              _replyTriggered = true;
+            } else if (widget.isCurrentUser && isSwipeLeft) {
+              widget.onReply();
+              _replyTriggered = true;
             }
           },
           child: Container(
@@ -75,12 +98,12 @@ class ChatBubble extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (replyToMessage != null) _buildReplyHeader(),
+                      if (widget.replyToMessage != null) _buildReplyHeader(),
                       if (isImage)
                         _buildImageContent(context)
                       else
                         Padding(
-                          padding: EdgeInsets.fromLTRB(10, 8, isEdited ? 60 : 35, 6),
+                          padding: EdgeInsets.fromLTRB(10, 8, widget.isEdited ? 60 : 35, 6),
                           child: _buildTextContent(),
                         ),
                     ],
@@ -100,7 +123,7 @@ class ChatBubble extends StatelessWidget {
   }
 
   BorderRadius _getBubbleBorderRadius() {
-    return isCurrentUser
+    return widget.isCurrentUser
         ? const BorderRadius.only(
       topLeft: Radius.circular(16),
       bottomLeft: Radius.circular(16),
@@ -115,18 +138,17 @@ class ChatBubble extends StatelessWidget {
     );
   }
 
-
   Widget _buildReplyHeader() {
-    final bool isImageReply = replyToMessage!.startsWith('📷');
+    final bool isImageReply = widget.replyToMessage!.startsWith('📷');
     final Color replyColor =
-    isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC);
+    widget.isCurrentUser ? const Color(0xFF5BCB02) : const Color(0xFF3390EC);
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
       margin: const EdgeInsets.fromLTRB(2, 2, 2, 6),
       decoration: BoxDecoration(
-        color: isCurrentUser
+        color: widget.isCurrentUser
             ? const Color(0xFFD5F0C2)
             : const Color(0xFFE6E8EA),
         borderRadius: BorderRadius.circular(10),
@@ -136,7 +158,7 @@ class ChatBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            replyToSender!,
+            widget.replyToSender!,
             style: TextStyle(
               fontWeight: FontWeight.w600,
               fontSize: 12.5,
@@ -145,7 +167,7 @@ class ChatBubble extends StatelessWidget {
           ),
           const SizedBox(height: 2),
           Text(
-            isImageReply ? "Изображение" : replyToMessage!,
+            isImageReply ? "Изображение" : widget.replyToMessage!,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
@@ -173,11 +195,11 @@ class ChatBubble extends StatelessWidget {
   }
 
   Widget _getImageWidget() {
-    final ImageProvider imageProvider = messageType == 'image_local'
-        ? FileImage(File(message))
-        : NetworkImage(message);
+    final ImageProvider imageProvider = widget.messageType == 'image_local'
+        ? FileImage(File(widget.message))
+        : NetworkImage(widget.message);
 
-    if (messageType == 'image_local') {
+    if (widget.messageType == 'image_local') {
       return Stack(
         children: [
           Image(image: imageProvider, fit: BoxFit.cover),
@@ -199,7 +221,7 @@ class ChatBubble extends StatelessWidget {
     }
 
     return Image.network(
-      message,
+      widget.message,
       fit: BoxFit.cover,
       gaplessPlayback: true,
       cacheWidth: 600,
@@ -231,7 +253,7 @@ class ChatBubble extends StatelessWidget {
 
   Widget _buildTextContent() {
     return Text(
-      message,
+      widget.message,
       style: const TextStyle(
         fontSize: 15.5,
         color: Colors.black87,
@@ -249,23 +271,23 @@ class ChatBubble extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (isEdited)
+        if (widget.isEdited)
           Text(
             "изм. ",
             style: TextStyle(fontSize: 11, color: statusColor),
           ),
-        if (isCurrentUser)
+        if (widget.isCurrentUser)
           Icon(
-            isRead ? Icons.done_all : Icons.done,
+            widget.isRead ? Icons.done_all : Icons.done,
             size: 15,
-            color: isRead ? readColor : statusColor,
+            color: widget.isRead ? readColor : statusColor,
           ),
       ],
     );
   }
 
   void _openFullScreenImage(BuildContext context) {
-    if (messageType == 'image_local') return;
+    if (widget.messageType == 'image_local') return;
 
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -278,7 +300,7 @@ class ChatBubble extends StatelessWidget {
               child: Stack(
                 children: [
                   PhotoView(
-                    imageProvider: NetworkImage(message),
+                    imageProvider: NetworkImage(widget.message),
                     backgroundDecoration:
                     const BoxDecoration(color: Colors.transparent),
                     loadingBuilder: (context, event) => const Center(
