@@ -2,16 +2,6 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>NSPhotoLibraryUsageDescription</key>
-    <string>Нужен доступ к галерее для выбора фото</string>
-    <key>NSCameraUsageDescription</key>
-    <string>Нужен доступ к камере для создания фото</string>
-    <key>NSMicrophoneUsageDescription</key>
-    <string>Нужен доступ к микрофону для записи видео с камеры</string>
-
-    <key>MinimumOSVersion</key>
-    <string>13.0</string>
-
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -22,7 +12,7 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<key>Lumen</key>
+	<key>CFBundleName</key>
 	<string>messenger_flutter</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
