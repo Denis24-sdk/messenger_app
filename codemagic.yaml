@@ -1,31 +1,70 @@
 workflows:
-  ios-workflow:
-    name: iOS Build
+  ios-adhoc:
+    name: iOS Ad-Hoc Build
     environment:
       vars:
+        APP_NAME: "Messenger"
+        BUNDLE_ID: "com.example.messengerFlutter"
         CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
         CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
-    scripts:
-      - name: Build iOS
-        script: |
-          flutter build ios --release \
-            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
-            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
-            -t lib/main.dart
 
-  android-workflow:
-    name: Android Build
+      # Настройки для Ad-Hoc сборки
+      apple_signing:
+        distribution_type: ad_hoc
+        team_id: $APPLE_TEAM_ID
+        certificate: $APPLE_CERTIFICATE
+        provisioning_profile: $APPLE_ADHOC_PROVISIONING_PROFILE
+        bundle_identifier: $BUNDLE_ID
+
+    scripts:
+      - name: Build iOS IPA
+        script: |
+          # Установка зависимостей
+          flutter pub get
+          cd ios
+          pod install
+          cd ..
+          
+          # Сборка IPA
+          flutter build ipa --release \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart \
+            --export-options-plist=ios/export_options.plist
+          
+          # Переименование IPA
+          mkdir -p build/ios/adhoc
+          cp build/ios/ipa/*.ipa build/ios/adhoc/$APP_NAME.ipa
+
+    artifacts:
+      - build/ios/adhoc/*.ipa
+
+  android-debug:
+    name: Android Debug Build
     environment:
       vars:
+        APP_NAME: "Messenger"
         CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
         CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+
     scripts:
-      - name: Build Android
+      - name: Build Android APK
         script: |
-          flutter build apk \
+          # Сборка debug APK
+          flutter build apk --debug \
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
+          
+          # Переименование APK
+          mkdir -p build/android/debug
+          cp build/app/outputs/flutter-apk/app-debug.apk build/android/debug/$APP_NAME.apk
+
+    artifacts:
+      - build/android/debug/*.apk
+
+
+
 
   web-workflow:
     name: Web Build
@@ -82,3 +121,8 @@ workflows:
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
+          
+
+  # Файл экспорта для iOS
+  files:
+    - ios/export_options.plist
