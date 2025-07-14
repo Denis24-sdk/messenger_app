@@ -34,6 +34,7 @@ dependencies:
   photo_view: ^0.15.0
   image: ^4.5.4
   cached_network_image: ^3.4.1
+  flutter_launcher_icons: ^0.14.4
 
 
 dev_dependencies:
@@ -49,3 +50,13 @@ flutter:
 
   assets:
     - assets/images/
+
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  windows:
+    generate: true
+    icon_size: 256
+
+  image_path: "assets/launcher_icon/icon.png"
