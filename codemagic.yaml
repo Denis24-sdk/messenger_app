@@ -8,7 +8,7 @@ workflows:
         CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
         CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
 
-      # Настройки для Ad-Hoc сборки
+
       apple_signing:
         distribution_type: ad_hoc
         team_id: $APPLE_TEAM_ID
@@ -33,14 +33,14 @@ workflows:
             --export-options-plist=ios/export_options.plist
           
           # Переименование IPA
-          mkdir -p build/ios/adhoc
-          cp build/ios/ipa/*.ipa build/ios/adhoc/$APP_NAME.ipa
+          mkdir -p artifacts/ios
+          cp build/ios/ipa/*.ipa artifacts/ios/$APP_NAME.ipa
 
     artifacts:
-      - build/ios/adhoc/*.ipa
+      - artifacts/ios/*.ipa
 
-  android-debug:
-    name: Android Debug Build
+  android-release:
+    name: Android Release Build
     environment:
       vars:
         APP_NAME: "Messenger"
@@ -50,21 +50,18 @@ workflows:
     scripts:
       - name: Build Android APK
         script: |
-          # Сборка debug APK
-          flutter build apk --debug \
+          # Сборка release APK
+          flutter build apk --release \
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
           
           # Переименование APK
-          mkdir -p build/android/debug
-          cp build/app/outputs/flutter-apk/app-debug.apk build/android/debug/$APP_NAME.apk
+          mkdir -p artifacts/android
+          cp build/app/outputs/flutter-apk/app-release.apk artifacts/android/$APP_NAME.apk
 
     artifacts:
-      - build/android/debug/*.apk
-
-
-
+      - artifacts/android/*.apk
 
   web-workflow:
     name: Web Build
@@ -79,6 +76,8 @@ workflows:
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
+    artifacts:
+      - build/web/**
 
   windows-workflow:
     name: Windows Build
@@ -93,6 +92,8 @@ workflows:
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
+    artifacts:
+      - build/windows/runner/Release/**/*.exe
 
   linux-workflow:
     name: Linux Build
@@ -107,6 +108,8 @@ workflows:
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
+    artifacts:
+      - build/linux/**/*.AppImage
 
   macos-workflow:
     name: macOS Build
@@ -121,8 +124,9 @@ workflows:
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
             --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
             -t lib/main.dart
-          
+    artifacts:
+      - build/macos/Build/Products/Release/*.app
 
-  # Файл экспорта для iOS
-  files:
-    - ios/export_options.plist
+# Общий раздел для файлов (вне workflow)
+files:
+  - ios/export_options.plist
