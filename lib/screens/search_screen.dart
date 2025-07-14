@@ -83,18 +83,17 @@ class _UserList extends StatelessWidget {
           if (user['uid'] == auth.currentUser!.uid) return false;
 
           final username = (user["username"] ?? "").toLowerCase();
-          final email = (user["email"] ?? "").toLowerCase();
           final query = searchQuery.toLowerCase().trim();
 
           if (query.isEmpty) return false;
 
-          return username.contains(query) || email.contains(query);
+          return username.contains(query);
         }).toList();
 
         if (searchQuery.trim().isEmpty) {
           return Center(
               child: Text(
-                'Начните вводить логин или email',
+                'Начните вводить логин',
                 style: TextStyle(color: AppColors.textSecondary),
               )
           );
@@ -130,7 +129,6 @@ class _UserListItem extends StatelessWidget {
     final chatService = context.read<ChatService>();
     final String? avatarUrl = userData['avatarUrl'];
     final String displayName = userData["username"] ?? "Пользователь";
-    final String email = userData["email"] ?? "email не указан";
 
     return Column(
       children: [
@@ -150,13 +148,6 @@ class _UserListItem extends StatelessWidget {
               color: AppColors.textPrimary,
               fontWeight: FontWeight.w600,
               fontSize: 16,
-            ),
-          ),
-          subtitle: Text(
-            email,
-            style: const TextStyle(
-              color: AppColors.textSecondary,
-              fontSize: 14,
             ),
           ),
           onTap: () async {

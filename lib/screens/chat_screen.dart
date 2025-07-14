@@ -124,7 +124,7 @@ class _ChatScreenState extends State<ChatScreen> {
         ],
       ),
       body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator(color: AppColors.accent,))
+          ? const Center(child: CircularProgressIndicator(color: AppColors.accent))
           : Column(
         children: [
           Expanded(child: _MessageList(onReply: _setReplyTo)),
@@ -156,7 +156,8 @@ class _ChatScreenState extends State<ChatScreen> {
             if (!snapshot.hasData || snapshot.data?.data() == null) {
               return const AlertDialog(
                 backgroundColor: AppColors.card,
-                content: Center(child: CircularProgressIndicator(color: AppColors.accent,)),
+                content: Center(
+                    child: CircularProgressIndicator(color: AppColors.accent)),
               );
             }
 
@@ -199,8 +200,8 @@ class _ChatScreenState extends State<ChatScreen> {
                             decoration: BoxDecoration(
                               color: AppColors.accent,
                               shape: BoxShape.circle,
-                              border: Border.all(
-                                  color: AppColors.card, width: 2),
+                              border:
+                              Border.all(color: AppColors.card, width: 2),
                             ),
                           ),
                         ),
@@ -242,14 +243,18 @@ class _ChatScreenState extends State<ChatScreen> {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.card,
-          title: Text("Очистить чат?", style: TextStyle(color: AppColors.textPrimary)),
-          content: Text("Вся история сообщений будет удалена безвозвратно.", style: TextStyle(color: AppColors.textSecondary)),
+          title: Text("Очистить чат?",
+              style: TextStyle(color: AppColors.textPrimary)),
+          content: Text("Вся история сообщений будет удалена безвозвратно.",
+              style: TextStyle(color: AppColors.textSecondary)),
           actions: <Widget>[
             TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: Text("Отмена", style: TextStyle(color: AppColors.textSecondary))),
+                child: Text("Отмена",
+                    style: TextStyle(color: AppColors.textSecondary))),
             TextButton(
-              child: const Text("Очистить", style: TextStyle(color: Colors.redAccent)),
+              child: const Text("Очистить",
+                  style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
                 context.read<ChatProvider>().clearChatHistory();
                 Navigator.of(dialogContext).pop();
@@ -280,10 +285,14 @@ class _AppBarTitle extends StatelessWidget {
         const CircleAvatar(
           radius: 20,
           backgroundColor: AppColors.accentGray,
-          child: Icon(Icons.group, color: AppColors.textSecondary, size: 22,),
+          child: Icon(Icons.group, color: AppColors.textSecondary, size: 22),
         ),
         const SizedBox(width: 12),
-        Text(chatName, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
+        Text(chatName,
+            style: TextStyle(
+                color: AppColors.textPrimary,
+                fontSize: 18,
+                fontWeight: FontWeight.bold)),
       ]);
     }
 
@@ -291,13 +300,15 @@ class _AppBarTitle extends StatelessWidget {
       stream: context.read<ChatService>().getUserStream(receiverID!),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.data() == null) {
-          return Text(chatName, style: TextStyle(color: AppColors.textPrimary));
+          return Text(chatName,
+              style: TextStyle(color: AppColors.textPrimary));
         }
 
         var userData = snapshot.data!.data() as Map<String, dynamic>;
         bool isOnline = userData['isOnline'] ?? false;
         String statusText = isOnline ? "в сети" : "не в сети";
-        Color statusColor = isOnline ? AppColors.accent : AppColors.textSecondary;
+        Color statusColor =
+        isOnline ? AppColors.accent : AppColors.textSecondary;
         String? avatarUrl = userData['avatarUrl'];
 
         return Row(
@@ -315,10 +326,16 @@ class _AppBarTitle extends StatelessWidget {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(userData['username'] ?? chatName, style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(userData['username'] ?? chatName,
+                    style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold)),
                 Text(statusText,
                     style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.normal, color: statusColor)),
+                        fontSize: 13,
+                        fontWeight: FontWeight.normal,
+                        color: statusColor)),
               ],
             ),
           ],
@@ -358,7 +375,8 @@ class _MessageListState extends State<_MessageList> {
           if (message.type == 'text' && isCurrentUser)
             ListTile(
               leading: Icon(Icons.edit, color: AppColors.textSecondary),
-              title: Text('Редактировать', style: TextStyle(color: AppColors.textPrimary)),
+              title: Text('Редактировать',
+                  style: TextStyle(color: AppColors.textPrimary)),
               onTap: () {
                 Navigator.pop(bottomSheetContext);
                 _showEditDialog(context, message);
@@ -367,7 +385,8 @@ class _MessageListState extends State<_MessageList> {
           if (isCurrentUser)
             ListTile(
               leading: const Icon(Icons.delete, color: Colors.redAccent),
-              title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
+              title: const Text('Удалить',
+                  style: TextStyle(color: Colors.redAccent)),
               onTap: () {
                 Navigator.pop(bottomSheetContext);
                 provider.deleteMessage(message.id!);
@@ -384,12 +403,20 @@ class _MessageListState extends State<_MessageList> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         backgroundColor: AppColors.card,
-        title: Text("Редактировать сообщение", style: TextStyle(color: AppColors.textPrimary)),
-        content: MyTextField(controller: editController, hintText: "", obscureText: false, autofocus: true, icon: Icons.message_rounded,),
+        title: Text("Редактировать сообщение",
+            style: TextStyle(color: AppColors.textPrimary)),
+        content: MyTextField(
+          controller: editController,
+          hintText: "",
+          obscureText: false,
+          autofocus: true,
+          icon: Icons.message_rounded,
+        ),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: Text("Отмена", style: TextStyle(color: AppColors.textSecondary),)),
+              child: Text("Отмена",
+                  style: TextStyle(color: AppColors.textSecondary))),
           TextButton(
             onPressed: () {
               context
@@ -406,85 +433,90 @@ class _MessageListState extends State<_MessageList> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChatProvider>(
-      builder: (context, provider, child) {
-        if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator(color: AppColors.accent,));
+    final chatProvider = context.watch<ChatProvider>();
+    final authId = context.read<FirebaseAuth>().currentUser!.uid;
+    final parentState = context.findAncestorStateOfType<_ChatScreenState>()!;
+
+    if (chatProvider.isLoading) {
+      return const Center(
+          child: CircularProgressIndicator(color: AppColors.accent));
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        chatProvider.markMessagesAsRead();
+        if (_scrollController.hasClients &&
+            chatProvider.messages.isNotEmpty &&
+            chatProvider.messages.first.senderID == authId) {
+          _scrollController.animateTo(0.0,
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut);
         }
+      }
+    });
 
-        SchedulerBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            provider.markMessagesAsRead();
-            if (_scrollController.hasClients) {
-              if (provider.messages.isNotEmpty &&
-                  provider.messages.first.senderID ==
-                      context.read<FirebaseAuth>().currentUser!.uid) {
-                _scrollController.animateTo(0.0,
-                    duration: const Duration(milliseconds: 300),
-                    curve: Curves.easeOut);
-              }
-            }
-          }
-        });
-
-        return ListView.builder(
-          controller: _scrollController,
-          reverse: true,
-          padding: const EdgeInsets.symmetric(horizontal: 8),
-          itemCount: provider.messages.length,
-          itemBuilder: (context, index) {
-            final message = provider.messages[index];
-            return _buildMessageItem(context, message,
-                key: ValueKey(message.id!));
-          },
+    return ListView.builder(
+      controller: _scrollController,
+      reverse: true,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: chatProvider.messages.length,
+      itemBuilder: (context, index) {
+        final message = chatProvider.messages[index];
+        return _buildMessageItem(
+          context,
+          message,
+          isGroup: parentState.widget.isGroup,
+          chatName: parentState.widget.chatName,
+          authId: authId,
+          userCache: chatProvider.userCache,
+          key: ValueKey(message.id!),
         );
       },
     );
   }
 
-  Widget _buildMessageItem(BuildContext context, Message message, {Key? key}) {
-    final chatProvider = context.read<ChatProvider>();
-    final authId = context.read<FirebaseAuth>().currentUser!.uid;
+  Widget _buildMessageItem(
+      BuildContext context,
+      Message message, {
+        Key? key,
+        required bool isGroup,
+        required String chatName,
+        required String authId,
+        required Map<String, Map<String, dynamic>> userCache,
+      }) {
     bool isCurrentUser = message.senderID == authId;
     String senderName = "Вы";
-    final parentState = context.findAncestorStateOfType<_ChatScreenState>()!;
 
-    if (!isCurrentUser) {
-      senderName = parentState.widget.isGroup
-          ? (chatProvider.userCache[message.senderID]?['username'] ??
-          message.senderEmail)
-          : parentState.widget.chatName;
+    if (!isCurrentUser && isGroup) {
+      senderName =
+      (userCache[message.senderID]?['username'] ?? message.senderEmail);
     }
 
     if (message.senderID == 'system') {
       return Center(
-        key: key,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8.0),
-          child: Text(message.message,
-              style: TextStyle(
-                  color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
-        ),
-      );
+          key: key,
+          child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(message.message,
+                  style: TextStyle(
+                      color: AppColors.textSecondary,
+                      fontStyle: FontStyle.italic))));
     }
 
-    return RepaintBoundary(
-      child: ChatBubble(
-        key: key,
-        message: message.message,
-        messageType: message.type,
-        senderName:
-        parentState.widget.isGroup && !isCurrentUser ? senderName : null,
-        replyToMessage: message.replyToMessage,
-        replyToSender: message.replyToSender,
-        isCurrentUser: isCurrentUser,
-        timestamp: message.timestamp,
-        isRead: message.isRead,
-        isEdited: message.isEdited,
-        aspectRatio: message.aspectRatio,
-        onLongPress: () => _showMessageOptions(context, message),
-        onReply: () => widget.onReply(message),
-      ),
+    return ChatBubble(
+      key: key,
+      message: message.message,
+      messageType: message.type,
+      senderName: isGroup && !isCurrentUser ? senderName : null,
+      replyToMessage: message.replyToMessage,
+      replyToSender: message.replyToSender,
+      isCurrentUser: isCurrentUser,
+      timestamp: message.timestamp,
+      isRead: message.isRead,
+      isEdited: message.isEdited,
+      aspectRatio: message.aspectRatio,
+      onLongPress: () => _showMessageOptions(context, message),
+      onReply: () => widget.onReply(message),
     );
   }
 }
@@ -520,7 +552,8 @@ class _TypingIndicator extends StatelessWidget {
           child: Row(children: [
             Text("$typingUserName печатает...",
                 style: TextStyle(
-                    color: AppColors.textSecondary, fontStyle: FontStyle.italic))
+                    color: AppColors.textSecondary,
+                    fontStyle: FontStyle.italic))
           ]),
         );
       },
@@ -556,7 +589,7 @@ class _ReplyContext extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         color: AppColors.accent,
                         fontSize: 14)),
-                const SizedBox(height: 2,),
+                const SizedBox(height: 2),
                 Text(replyingTo['message'],
                     style: TextStyle(color: AppColors.textSecondary),
                     maxLines: 1,
@@ -566,7 +599,8 @@ class _ReplyContext extends StatelessWidget {
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
+            icon: Icon(Icons.close_rounded,
+                size: 20, color: AppColors.textSecondary),
             onPressed: onCancel,
           ),
         ],
@@ -596,7 +630,8 @@ class _UserInput extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           IconButton(
-              icon: Icon(Icons.add_photo_alternate_outlined, color: AppColors.textSecondary, size: 28,),
+              icon: Icon(Icons.add_photo_alternate_outlined,
+                  color: AppColors.textSecondary, size: 28),
               onPressed: onAttach),
           Expanded(
               child: MyTextField(
@@ -605,7 +640,7 @@ class _UserInput extends StatelessWidget {
                 obscureText: false,
                 icon: Icons.abc,
               )),
-          const SizedBox(width: 8,),
+          const SizedBox(width: 8),
           InkWell(
             onTap: onSend,
             borderRadius: BorderRadius.circular(25),

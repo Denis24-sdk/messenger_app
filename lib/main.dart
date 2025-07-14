@@ -66,6 +66,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
+        showPerformanceOverlay: false, // ОВЕРЛЕЙ ПРОИЗВОДИТЕЛЬНОСТИ
         debugShowCheckedModeBanner: false,
         title: 'Messenger',
         theme: ThemeData(

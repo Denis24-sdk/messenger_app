@@ -14,6 +14,8 @@ class ChatRoom {
 
   final String? otherUserId;
 
+  final Map<String, int> unreadCount;
+
   ChatRoom({
     required this.id,
     required this.isGroup,
@@ -24,6 +26,7 @@ class ChatRoom {
     this.createdBy,
     this.createdAt,
     this.otherUserId,
+    required this.unreadCount,
   });
 
   factory ChatRoom.fromFirestore(DocumentSnapshot doc, String currentUserId) {
@@ -57,6 +60,7 @@ class ChatRoom {
       createdBy: data['createdBy'],
       createdAt: data['createdAt'],
       otherUserId: otherId,
+      unreadCount: Map<String, int>.from(data['unreadCount'] ?? {}),
     );
   }
 }

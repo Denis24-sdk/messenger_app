@@ -32,6 +32,7 @@ class ChatService {
         'lastMessageSenderId': null,
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
+        'unreadCount': {currentUserID: 0, otherUserID: 0},
       });
     }
     return chatRoomID;
@@ -75,6 +76,10 @@ class ChatService {
     List<String> allMemberIds = [currentUserId, ...memberIds];
     allMemberIds = allMemberIds.toSet().toList();
 
+    Map<String, int> initialUnreadCount = {
+      for (var id in allMemberIds) id: 0
+    };
+
     DocumentReference groupDocRef = _firestore.collection('chat_rooms').doc();
 
     await groupDocRef.set({
@@ -87,6 +92,7 @@ class ChatService {
       'lastMessage': '$currentUsername создал(а) группу',
       'lastMessageSenderId': 'system',
       'lastMessageTimestamp': Timestamp.now(),
+      'unreadCount': initialUnreadCount,
     });
   }
 
@@ -109,10 +115,20 @@ class ChatService {
     DocumentReference chatRoomRef =
     _firestore.collection("chat_rooms").doc(chatRoomID);
 
+    final roomSnapshot = await chatRoomRef.get();
+    final members = List<String>.from(roomSnapshot.get('members') ?? []);
+    Map<String, dynamic> unreadUpdates = {};
+    for (var memberId in members) {
+      if (memberId != currentUserID) {
+        unreadUpdates['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
+    }
+
     await chatRoomRef.update({
       'lastMessage': messageText,
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
+      ...unreadUpdates,
     });
 
     await chatRoomRef.collection("messages").add(newMessage.toMap());
@@ -135,10 +151,20 @@ class ChatService {
     DocumentReference chatRoomRef =
     _firestore.collection("chat_rooms").doc(chatRoomID);
 
+    final roomSnapshot = await chatRoomRef.get();
+    final members = List<String>.from(roomSnapshot.get('members') ?? []);
+    Map<String, dynamic> unreadUpdates = {};
+    for (var memberId in members) {
+      if (memberId != currentUserID) {
+        unreadUpdates['unreadCount.$memberId'] = FieldValue.increment(1);
+      }
+    }
+
     await chatRoomRef.update({
       'lastMessage': "📷 Изображение",
       'lastMessageSenderId': currentUserID,
       'lastMessageTimestamp': timestamp,
+      ...unreadUpdates,
     });
 
     return await chatRoomRef.collection("messages").add(newMessage.toMap());
@@ -222,6 +248,12 @@ class ChatService {
 
   Future<void> markMessagesAsRead(String chatRoomID) async {
     final String currentUserId = _auth.currentUser!.uid;
+
+    await _firestore
+        .collection("chat_rooms")
+        .doc(chatRoomID)
+        .update({'unreadCount.$currentUserId': 0});
+
     final querySnapshot = await _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
