@@ -12,8 +12,21 @@ import 'package:messenger_flutter/services/auth_service.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
 import 'package:provider/provider.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<HomeProvider>().listenToChatRooms();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -324,10 +337,14 @@ class _ChatItemPlaceholder extends StatelessWidget {
     return ListTile(
       leading: const CircleAvatar(radius: 25, backgroundColor: AppColors.card),
       title: Container(
-          height: 16, width: 100, color: AppColors.card,
+          height: 16,
+          width: 100,
+          color: AppColors.card,
           margin: const EdgeInsets.only(right: 100)),
       subtitle: Container(
-          height: 12, width: 150, color: AppColors.card,
+          height: 12,
+          width: 150,
+          color: AppColors.card,
           margin: const EdgeInsets.only(right: 40)),
       trailing: Container(height: 12, width: 30, color: AppColors.card),
     );

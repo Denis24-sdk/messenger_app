@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:messenger_flutter/components/chat_bubble.dart';
-import 'package:messenger_flutter/components/my_textfield.dart';
 import 'package:messenger_flutter/main.dart';
 import 'package:messenger_flutter/models/message.dart';
 import 'package:messenger_flutter/providers/chat_provider.dart';
@@ -405,12 +404,18 @@ class _MessageListState extends State<_MessageList> {
         backgroundColor: AppColors.card,
         title: Text("Редактировать сообщение",
             style: TextStyle(color: AppColors.textPrimary)),
-        content: MyTextField(
+        content: TextField(
           controller: editController,
-          hintText: "",
-          obscureText: false,
           autofocus: true,
-          icon: Icons.message_rounded,
+          style: const TextStyle(color: AppColors.textPrimary),
+          decoration: InputDecoration(
+            hintText: "...",
+            hintStyle: TextStyle(color: AppColors.textSecondary),
+            border: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.accentGray)),
+            focusedBorder: UnderlineInputBorder(
+                borderSide: BorderSide(color: AppColors.accent)),
+          ),
         ),
         actions: [
           TextButton(
@@ -623,31 +628,47 @@ class _UserInput extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      color: AppColors.card,
       padding: EdgeInsets.fromLTRB(
-          8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
+          4, 8, 8, MediaQuery.of(context).padding.bottom + 8),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           IconButton(
               icon: Icon(Icons.add_photo_alternate_outlined,
-                  color: AppColors.textSecondary, size: 28),
+                  color: AppColors.textSecondary, size: 26),
               onPressed: onAttach),
           Expanded(
-              child: MyTextField(
-                controller: controller,
-                hintText: "Сообщение...",
-                obscureText: false,
-                icon: Icons.abc,
-              )),
-          const SizedBox(width: 8),
-          InkWell(
-            onTap: onSend,
-            borderRadius: BorderRadius.circular(25),
             child: Container(
-              padding: const EdgeInsets.all(12),
-              decoration: const BoxDecoration(
-                  color: AppColors.accent, shape: BoxShape.circle),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: AppColors.card,
+                borderRadius: BorderRadius.circular(24),
+              ),
+              child: TextField(
+                controller: controller,
+                style: const TextStyle(color: AppColors.textPrimary),
+                maxLines: null,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: "Сообщение...",
+                  hintStyle: TextStyle(color: AppColors.textSecondary),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: FilledButton(
+              onPressed: onSend,
+              style: FilledButton.styleFrom(
+                backgroundColor: AppColors.accent,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: EdgeInsets.zero,
+              ),
               child: const Icon(Icons.arrow_upward, color: AppColors.background),
             ),
           ),

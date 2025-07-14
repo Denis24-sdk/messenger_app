@@ -229,29 +229,22 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildTextLayout() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 8, 8, 8),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Flexible(
-            child: Text(
-              widget.message,
-              style: const TextStyle(
-                fontSize: 15.5,
-                color: AppColors.textPrimary,
-                height: 1.35,
-              ),
+    return Stack(
+      children: [
+        Padding(
+          // ИЗМЕНЕНИЕ: Увеличиваем правый отступ, чтобы было место для индикатора.
+          padding: const EdgeInsets.fromLTRB(12, 8, 90, 8),
+          child: Text(
+            widget.message,
+            style: const TextStyle(
+              fontSize: 15.5,
+              color: AppColors.textPrimary,
+              height: 1.35,
             ),
           ),
-          const SizedBox(width: 8),
-          Padding(
-            padding: const EdgeInsets.only(top: 14.0),
-            child: _buildStatusIndicator(),
-          ),
-        ],
-      ),
+        ),
+        Positioned(bottom: 4, right: 8, child: _buildStatusIndicator()),
+      ],
     );
   }
 
@@ -314,10 +307,24 @@ class _ChatBubbleState extends State<ChatBubble> {
   );
 
   Widget _buildStatusIndicator({bool isForImage = false}) {
-    final statusColor = AppColors.textSecondary.withOpacity(
-      isForImage ? 0.9 : 0.8,
-    );
-    final readColor = AppColors.accent;
+    if (isForImage) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        decoration: BoxDecoration(
+          color: Colors.black.withOpacity(0.5),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: _buildIndicatorRow(true),
+      );
+    }
+    return _buildIndicatorRow(false);
+  }
+
+  Widget _buildIndicatorRow(bool isForImage) {
+    final statusColor = isForImage
+        ? Colors.white.withOpacity(0.9)
+        : AppColors.textSecondary;
+    final readColor = isForImage ? Colors.lightBlueAccent : AppColors.accent;
     final String formattedTime = DateFormat(
       'HH:mm',
     ).format(widget.timestamp.toDate());

@@ -14,7 +14,7 @@ class HomeProvider with ChangeNotifier {
   ChatFilter _currentFilter = ChatFilter.all;
 
   HomeProvider({required ChatService chatService}) : _chatService = chatService {
-    _listenToChatRooms();
+    listenToChatRooms();
   }
 
   bool get isLoading => _isLoading;
@@ -31,21 +31,30 @@ class HomeProvider with ChangeNotifier {
     }
   }
 
-  void _listenToChatRooms() {
+  void listenToChatRooms() {
+    if (_chatRoomsSubscription != null) {
+      return;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
     _chatRoomsSubscription = _chatService.getChatRoomsStream().listen((rooms) {
-      if (_chatRoomsSubscription != null) {
-        _chatRooms = rooms;
-        if (_isLoading) {
-          _isLoading = false;
-        }
-        notifyListeners();
-      }
+      _chatRooms = rooms;
+      _isLoading = false;
+      notifyListeners();
+    }, onError: (error) {
+      print("HomeProvider Error: $error");
+      _isLoading = false;
+      notifyListeners();
     });
   }
 
   void cancelSubscription() {
     _chatRoomsSubscription?.cancel();
     _chatRoomsSubscription = null;
+    _chatRooms = [];
+    _isLoading = true;
   }
 
   void setFilter(ChatFilter newFilter) {
@@ -57,7 +66,7 @@ class HomeProvider with ChangeNotifier {
 
   @override
   void dispose() {
-    cancelSubscription();
+    _chatRoomsSubscription?.cancel();
     super.dispose();
   }
 }
