@@ -4,7 +4,8 @@ project(runner LANGUAGES CXX)
 
 # The name of the executable created for the application. Change this to change
 # the on-disk name of your application.
-set(BINARY_NAME "messenger_flutter")
+set(APPLICATION_NAME "Lumen")
+set(BINARY_NAME "Lumen")
 # The unique GTK application identifier for this application. See:
 # https://wiki.gnome.org/HowDoI/ChooseApplicationID
 set(APPLICATION_ID "com.example.messenger_flutter")

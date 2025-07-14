@@ -9,6 +9,9 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Нужен доступ к микрофону для записи видео с камеры</string>
 
+    <key>MinimumOSVersion</key>
+    <string>13.0</string>
+
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
@@ -19,7 +22,7 @@
 	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
-	<key>CFBundleName</key>
+	<key>Lumen</key>
 	<string>messenger_flutter</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>

@@ -232,8 +232,12 @@ class _ChatBubbleState extends State<ChatBubble> {
     return Stack(
       children: [
         Padding(
-          // ИЗМЕНЕНИЕ: Увеличиваем правый отступ, чтобы было место для индикатора.
-          padding: const EdgeInsets.fromLTRB(12, 8, 90, 8),
+          padding: EdgeInsets.fromLTRB(
+            12,
+            8,
+            widget.isCurrentUser ? 90 : 70,
+            8,
+          ),
           child: Text(
             widget.message,
             style: const TextStyle(
