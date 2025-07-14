@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
+import 'package:messenger_flutter/main.dart';
 
 class MyTextField extends StatelessWidget {
   final String hintText;
+  final IconData icon;
   final bool obscureText;
   final TextEditingController controller;
   final bool autofocus;
-  final TextInputAction? textInputAction;
   final ValueChanged<String>? onChanged;
+  final TextInputType? keyboardType;
+
 
   const MyTextField({
-    super.key,
+    Key? key,
     required this.hintText,
-    required this.obscureText,
+    required this.icon,
     required this.controller,
+    required this.obscureText,
     this.autofocus = false,
-    this.textInputAction,
     this.onChanged,
-  });
+    this.keyboardType,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -24,40 +28,32 @@ class MyTextField extends StatelessWidget {
       controller: controller,
       obscureText: obscureText,
       autofocus: autofocus,
-      textInputAction: textInputAction,
       onChanged: onChanged,
-      style: TextStyle(
-        color: Theme.of(context).colorScheme.onSurface,
+      keyboardType: keyboardType,
+      style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w500),
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: AppColors.card,
+        prefixIcon: Icon(icon, color: AppColors.textSecondary, size: 22,),
+        hintText: hintText,
+        hintStyle: const TextStyle(color: AppColors.textSecondary),
+        contentPadding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(
+            color: AppColors.accentGray,
+            width: 1.5,
+          ),
+        ),
       ),
-      decoration: _buildInputDecoration(context),
-    );
-  }
-
-  InputDecoration _buildInputDecoration(BuildContext context) {
-    const enabledBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.all(Radius.circular(15)),
-      borderSide: BorderSide.none,
-    );
-
-    final focusedBorder = OutlineInputBorder(
-      borderRadius: const BorderRadius.all(Radius.circular(15)),
-      borderSide: BorderSide(
-        color: Theme.of(context).colorScheme.primary.withOpacity(0.8),
-        width: 2,
-      ),
-    );
-
-    return InputDecoration(
-      border: InputBorder.none,
-      fillColor: Colors.black.withOpacity(0.05),
-      filled: true,
-      enabledBorder: enabledBorder,
-      focusedBorder: focusedBorder,
-      hintText: hintText,
-      hintStyle: TextStyle(
-        color: Colors.grey.shade600,
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
     );
   }
 }

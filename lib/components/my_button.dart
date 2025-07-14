@@ -1,57 +1,46 @@
 import 'package:flutter/material.dart';
 
 class MyButton extends StatelessWidget {
+  final VoidCallback? onPressed;
+  final bool isLoading;
   final String text;
-  final void Function()? onTap;
-  final Widget? child;
 
   const MyButton({
-    super.key,
+    Key? key,
+    required this.onPressed,
+    required this.isLoading,
     required this.text,
-    required this.onTap,
-    this.child,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [
-              Color(0xFF474747),
-              Color(0xFF767676),
-            ],
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
+    final colors = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SizedBox(
+      width: double.infinity,
+      height: 55,
+      child: FilledButton(
+        onPressed: onPressed,
+        style: FilledButton.styleFrom(
+          backgroundColor: colors.primary,
+          disabledBackgroundColor: colors.primary.withOpacity(0.5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-          borderRadius: BorderRadius.circular(15),
-          boxShadow: [
-            BoxShadow(
-              color: HSLColor.fromColor(Colors.white).withAlpha(0.2).toColor(),
-              blurRadius: 10,
-              offset: const Offset(0, 5),
-            )
-          ],
         ),
-        child: Center(
-          child: child ?? Text(
-            text,
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: Colors.white,
-              shadows: [
-                Shadow(
-                  blurRadius: 2.0,
-                  color: Colors.black.withOpacity(0.3),
-                  offset: const Offset(1, 1),
-                ),
-              ],
-            ),
+        child: isLoading
+            ? const SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            color: Colors.black87,
           ),
+        )
+            : Text(
+          text,
+          style: textTheme.labelLarge,
         ),
       ),
     );

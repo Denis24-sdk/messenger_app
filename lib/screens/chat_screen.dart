@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:messenger_flutter/components/chat_bubble.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
+import 'package:messenger_flutter/main.dart';
 import 'package:messenger_flutter/models/message.dart';
 import 'package:messenger_flutter/providers/chat_provider.dart';
 import 'package:messenger_flutter/services/chat/chat_service.dart';
@@ -34,7 +35,9 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
-    context.read<ChatProvider>().loadInitialData(widget.isGroup, widget.receiverID);
+    context
+        .read<ChatProvider>()
+        .loadInitialData(widget.isGroup, widget.receiverID);
   }
 
   @override
@@ -44,6 +47,7 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _sendMessage() {
+    if (_messageController.text.trim().isEmpty) return;
     final provider = context.read<ChatProvider>();
     provider.sendMessage(
       _messageController.text,
@@ -74,7 +78,8 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final replyText =
     (message.type).startsWith('image') ? '📷 Изображение' : message.message;
-    setState(() => _replyingTo = {'message': replyText, 'senderName': senderName});
+    setState(
+            () => _replyingTo = {'message': replyText, 'senderName': senderName});
   }
 
   void _cancelReply() {
@@ -86,7 +91,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final provider = context.watch<ChatProvider>();
 
     return Scaffold(
+      backgroundColor: AppColors.background,
       appBar: AppBar(
+        backgroundColor: AppColors.background,
+        elevation: 0,
+        foregroundColor: AppColors.textSecondary,
         title: GestureDetector(
           onTap: () => _openReceiverProfile(context),
           child: _AppBarTitle(
@@ -97,18 +106,25 @@ class _ChatScreenState extends State<ChatScreen> {
         ),
         actions: [
           PopupMenuButton<String>(
+            color: AppColors.card,
+            icon: const Icon(Icons.more_vert),
             onSelected: (value) {
               if (value == 'clear_chat') _confirmClearChat(context);
             },
             itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                  value: 'clear_chat', child: Text('Очистить чат')),
+              PopupMenuItem<String>(
+                value: 'clear_chat',
+                child: Text(
+                  'Очистить чат',
+                  style: TextStyle(color: AppColors.textPrimary),
+                ),
+              ),
             ],
           ),
         ],
       ),
       body: provider.isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator(color: AppColors.accent,))
           : Column(
         children: [
           Expanded(child: _MessageList(onReply: _setReplyTo)),
@@ -139,7 +155,8 @@ class _ChatScreenState extends State<ChatScreen> {
           builder: (context, snapshot) {
             if (!snapshot.hasData || snapshot.data?.data() == null) {
               return const AlertDialog(
-                content: Center(child: CircularProgressIndicator()),
+                backgroundColor: AppColors.card,
+                content: Center(child: CircularProgressIndicator(color: AppColors.accent,)),
               );
             }
 
@@ -151,26 +168,27 @@ class _ChatScreenState extends State<ChatScreen> {
             final bool hasBio = bio != null && bio.isNotEmpty;
 
             return AlertDialog(
+              backgroundColor: AppColors.card,
               contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(16),
               ),
               content: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-
                   Stack(
+                    alignment: Alignment.center,
                     children: [
                       CircleAvatar(
                         radius: 50,
-                        backgroundColor: Colors.grey.shade300,
+                        backgroundColor: AppColors.accentGray,
                         backgroundImage:
                         avatarUrl != null ? NetworkImage(avatarUrl) : null,
                         child: avatarUrl == null
-                            ? const Icon(Icons.person, size: 50)
+                            ? Icon(Icons.person,
+                            size: 50, color: AppColors.textSecondary)
                             : null,
                       ),
-
                       if (isOnline)
                         Positioned(
                           bottom: 2,
@@ -179,11 +197,10 @@ class _ChatScreenState extends State<ChatScreen> {
                             width: 15,
                             height: 15,
                             decoration: BoxDecoration(
-                              color: Colors.green,
+                              color: AppColors.accent,
                               shape: BoxShape.circle,
                               border: Border.all(
-                                  color: Theme.of(context).dialogBackgroundColor,
-                                  width: 2),
+                                  color: AppColors.card, width: 2),
                             ),
                           ),
                         ),
@@ -193,17 +210,21 @@ class _ChatScreenState extends State<ChatScreen> {
                   Text(
                     username,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
                   const SizedBox(height: 8),
-
                   Text(
-                    hasBio ? bio : 'Описание отсутствует',
+                    hasBio ? bio : 'Нет информации',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 15,
-                      color: hasBio ? Colors.black87 : Colors.grey.shade600,
+                      color: hasBio
+                          ? AppColors.textPrimary
+                          : AppColors.textSecondary,
                     ),
                   ),
                 ],
@@ -220,14 +241,15 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       builder: (BuildContext dialogContext) {
         return AlertDialog(
-          title: const Text("Очистить чат?"),
-          content: const Text("Вся история сообщений будет удалена."),
+          backgroundColor: AppColors.card,
+          title: Text("Очистить чат?", style: TextStyle(color: AppColors.textPrimary)),
+          content: Text("Вся история сообщений будет удалена безвозвратно.", style: TextStyle(color: AppColors.textSecondary)),
           actions: <Widget>[
             TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text("Отмена")),
+                child: Text("Отмена", style: TextStyle(color: AppColors.textSecondary))),
             TextButton(
-              child: const Text("Очистить", style: TextStyle(color: Colors.red)),
+              child: const Text("Очистить", style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
                 context.read<ChatProvider>().clearChatHistory();
                 Navigator.of(dialogContext).pop();
@@ -255,9 +277,13 @@ class _AppBarTitle extends StatelessWidget {
   Widget build(BuildContext context) {
     if (isGroup) {
       return Row(children: [
-        const CircleAvatar(radius: 20, child: Icon(Icons.group)),
+        const CircleAvatar(
+          radius: 20,
+          backgroundColor: AppColors.accentGray,
+          child: Icon(Icons.group, color: AppColors.textSecondary, size: 22,),
+        ),
         const SizedBox(width: 12),
-        Text(chatName),
+        Text(chatName, style: TextStyle(color: AppColors.textPrimary, fontSize: 18, fontWeight: FontWeight.bold)),
       ]);
     }
 
@@ -265,33 +291,34 @@ class _AppBarTitle extends StatelessWidget {
       stream: context.read<ChatService>().getUserStream(receiverID!),
       builder: (context, snapshot) {
         if (!snapshot.hasData || snapshot.data?.data() == null) {
-          return Text(chatName);
+          return Text(chatName, style: TextStyle(color: AppColors.textPrimary));
         }
 
         var userData = snapshot.data!.data() as Map<String, dynamic>;
         bool isOnline = userData['isOnline'] ?? false;
         String statusText = isOnline ? "в сети" : "не в сети";
+        Color statusColor = isOnline ? AppColors.accent : AppColors.textSecondary;
         String? avatarUrl = userData['avatarUrl'];
 
         return Row(
           children: [
             CircleAvatar(
               radius: 20,
-              backgroundColor: Colors.grey.shade300,
+              backgroundColor: AppColors.accentGray,
               backgroundImage:
               avatarUrl != null ? NetworkImage(avatarUrl) : null,
               child: avatarUrl == null
-                  ? const Icon(Icons.person, size: 20, color: Colors.grey)
+                  ? Icon(Icons.person, size: 20, color: AppColors.textSecondary)
                   : null,
             ),
             const SizedBox(width: 12),
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(userData['username'] ?? chatName),
+                Text(userData['username'] ?? chatName, style: TextStyle(color: AppColors.textPrimary, fontSize: 17, fontWeight: FontWeight.bold)),
                 Text(statusText,
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.normal)),
+                    style: TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.normal, color: statusColor)),
               ],
             ),
           ],
@@ -325,12 +352,13 @@ class _MessageListState extends State<_MessageList> {
 
     showModalBottomSheet(
       context: context,
+      backgroundColor: AppColors.card,
       builder: (bottomSheetContext) => SafeArea(
         child: Wrap(children: <Widget>[
           if (message.type == 'text' && isCurrentUser)
             ListTile(
-              leading: const Icon(Icons.edit),
-              title: const Text('Редактировать'),
+              leading: Icon(Icons.edit, color: AppColors.textSecondary),
+              title: Text('Редактировать', style: TextStyle(color: AppColors.textPrimary)),
               onTap: () {
                 Navigator.pop(bottomSheetContext);
                 _showEditDialog(context, message);
@@ -338,8 +366,8 @@ class _MessageListState extends State<_MessageList> {
             ),
           if (isCurrentUser)
             ListTile(
-              leading: const Icon(Icons.delete, color: Colors.red),
-              title: const Text('Удалить', style: TextStyle(color: Colors.red)),
+              leading: const Icon(Icons.delete, color: Colors.redAccent),
+              title: const Text('Удалить', style: TextStyle(color: Colors.redAccent)),
               onTap: () {
                 Navigator.pop(bottomSheetContext);
                 provider.deleteMessage(message.id!);
@@ -350,18 +378,18 @@ class _MessageListState extends State<_MessageList> {
     );
   }
 
-
   void _showEditDialog(BuildContext context, Message message) {
     final editController = TextEditingController(text: message.message);
     showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text("Редактировать"),
-        content: TextField(controller: editController, autofocus: true),
+        backgroundColor: AppColors.card,
+        title: Text("Редактировать сообщение", style: TextStyle(color: AppColors.textPrimary)),
+        content: MyTextField(controller: editController, hintText: "", obscureText: false, autofocus: true, icon: Icons.message_rounded,),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text("Отмена")),
+              child: Text("Отмена", style: TextStyle(color: AppColors.textSecondary),)),
           TextButton(
             onPressed: () {
               context
@@ -369,7 +397,7 @@ class _MessageListState extends State<_MessageList> {
                   .editMessage(message.id!, editController.text);
               Navigator.pop(dialogContext);
             },
-            child: const Text("Сохранить"),
+            child: Text("Сохранить", style: TextStyle(color: AppColors.accent)),
           ),
         ],
       ),
@@ -381,7 +409,7 @@ class _MessageListState extends State<_MessageList> {
     return Consumer<ChatProvider>(
       builder: (context, provider, child) {
         if (provider.isLoading) {
-          return const Center(child: CircularProgressIndicator());
+          return const Center(child: CircularProgressIndicator(color: AppColors.accent,));
         }
 
         SchedulerBinding.instance.addPostFrameCallback((_) {
@@ -389,7 +417,8 @@ class _MessageListState extends State<_MessageList> {
             provider.markMessagesAsRead();
             if (_scrollController.hasClients) {
               if (provider.messages.isNotEmpty &&
-                  provider.messages.first.senderID == context.read<FirebaseAuth>().currentUser!.uid) {
+                  provider.messages.first.senderID ==
+                      context.read<FirebaseAuth>().currentUser!.uid) {
                 _scrollController.animateTo(0.0,
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOut);
@@ -401,11 +430,12 @@ class _MessageListState extends State<_MessageList> {
         return ListView.builder(
           controller: _scrollController,
           reverse: true,
-          padding: const EdgeInsets.all(8),
+          padding: const EdgeInsets.symmetric(horizontal: 8),
           itemCount: provider.messages.length,
           itemBuilder: (context, index) {
             final message = provider.messages[index];
-            return _buildMessageItem(context, message, key: ValueKey(message.id!));
+            return _buildMessageItem(context, message,
+                key: ValueKey(message.id!));
           },
         );
       },
@@ -432,7 +462,8 @@ class _MessageListState extends State<_MessageList> {
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 8.0),
           child: Text(message.message,
-              style: TextStyle(color: Colors.grey.shade600, fontStyle: FontStyle.italic)),
+              style: TextStyle(
+                  color: AppColors.textSecondary, fontStyle: FontStyle.italic)),
         ),
       );
     }
@@ -489,7 +520,7 @@ class _TypingIndicator extends StatelessWidget {
           child: Row(children: [
             Text("$typingUserName печатает...",
                 style: TextStyle(
-                    color: Colors.grey.shade600, fontStyle: FontStyle.italic))
+                    color: AppColors.textSecondary, fontStyle: FontStyle.italic))
           ]),
         );
       },
@@ -506,29 +537,36 @@ class _ReplyContext extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-          color: Theme.of(context).primaryColor.withOpacity(0.1)),
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+      color: AppColors.card,
       child: Row(
         children: [
-          Icon(Icons.reply, color: Colors.green.shade600, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            width: 4,
+            height: 40,
+            color: AppColors.accent,
+            margin: const EdgeInsets.only(right: 12),
+          ),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text("Ответ на: ${replyingTo['senderName']}",
+                Text("Ответ для ${replyingTo['senderName']}",
                     style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.green.shade700)),
+                        color: AppColors.accent,
+                        fontSize: 14)),
+                const SizedBox(height: 2,),
                 Text(replyingTo['message'],
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                    style: TextStyle(color: AppColors.textSecondary),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis),
               ],
             ),
           ),
           IconButton(
             visualDensity: VisualDensity.compact,
-            icon: const Icon(Icons.close, size: 20),
+            icon: Icon(Icons.close_rounded, size: 20, color: AppColors.textSecondary),
             onPressed: onCancel,
           ),
         ],
@@ -550,27 +588,33 @@ class _UserInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
+    return Container(
+      color: AppColors.card,
       padding: EdgeInsets.fromLTRB(
           8, 8, 8, MediaQuery.of(context).padding.bottom + 8),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           IconButton(
-              icon: const Icon(Icons.add_photo_alternate_outlined),
+              icon: Icon(Icons.add_photo_alternate_outlined, color: AppColors.textSecondary, size: 28,),
               onPressed: onAttach),
           Expanded(
               child: MyTextField(
                 controller: controller,
                 hintText: "Сообщение...",
                 obscureText: false,
+                icon: Icons.abc,
               )),
-          Container(
-            decoration:
-            const BoxDecoration(color: Colors.green, shape: BoxShape.circle),
-            margin: const EdgeInsets.only(left: 8),
-            child: IconButton(
-                onPressed: onSend,
-                icon: const Icon(Icons.arrow_upward, color: Colors.white)),
+          const SizedBox(width: 8,),
+          InkWell(
+            onTap: onSend,
+            borderRadius: BorderRadius.circular(25),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: const BoxDecoration(
+                  color: AppColors.accent, shape: BoxShape.circle),
+              child: const Icon(Icons.arrow_upward, color: AppColors.background),
+            ),
           ),
         ],
       ),

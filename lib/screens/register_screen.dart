@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:messenger_flutter/components/my_button.dart';
 import 'package:messenger_flutter/components/my_textfield.dart';
-import 'package:glassmorphism/glassmorphism.dart';
+import 'package:messenger_flutter/main.dart';
 import 'package:messenger_flutter/services/auth_service.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -18,7 +18,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController usernameController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
-  final TextEditingController confirmPasswordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+  TextEditingController();
 
   @override
   void dispose() {
@@ -29,33 +30,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() async {
+  void register(BuildContext context) async {
     final authService = context.read<AuthService>();
+
     try {
       await authService.register(
-        usernameController.text,
-        emailController.text,
-        passwordController.text,
-        confirmPasswordController.text,
+        usernameController.text.trim(),
+        emailController.text.trim(),
+        passwordController.text.trim(),
+        confirmPasswordController.text.trim(),
       );
     } catch (e) {
       if (!mounted) return;
-
-      String errorMessage = "Произошла ошибка.";
+      String errorMessage = "Произошла неизвестная ошибка.";
       if (e is FirebaseAuthException) {
-        if (e.code == 'email-already-in-use') {
-          errorMessage = 'Этот email уже зарегистрирован.';
-        } else if (e.code == 'weak-password') {
-          errorMessage = 'Пароль слишком слабый.';
-        } else if (e.code == 'invalid-email') {
-          errorMessage = 'Некорректный формат email.';
+        switch (e.code) {
+          case 'email-already-in-use':
+            errorMessage = 'Этот email уже зарегистрирован.';
+            break;
+          case 'weak-password':
+            errorMessage = 'Пароль слишком слабый (минимум 6 символов).';
+            break;
+          case 'invalid-email':
+            errorMessage = 'Некорректный формат email адреса.';
+            break;
+          default:
+            errorMessage = 'Произошла ошибка регистрации. Попробуйте позже.';
         }
       } else if (e is Exception) {
+        // кастомные ошибки
         errorMessage = e.toString().replaceFirst('Exception: ', '');
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.redAccent,
+        ),
       );
     }
   }
@@ -63,138 +74,106 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final authService = context.watch<AuthService>();
-    final isLoading = authService.status == AuthStatus.authenticating;
+    final bool isLoading = authService.status == AuthStatus.authenticating;
+    final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-        resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.black,
-        body: Container(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage("assets/images/background.jpg"),
-              fit: BoxFit.cover,
-            ),
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              AppColors.background,
+              AppColors.background.withOpacity(0.9),
+            ],
+            begin: Alignment.topRight,
+            end: Alignment.bottomLeft,
           ),
-          child: Center(
-            child: GlassmorphicContainer(
-              width: 350,
-              height: 570,
-              borderRadius: 20,
-              blur: 0,
-              alignment: Alignment.center,
-              border: 2,
-              linearGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  HSLColor.fromColor(Colors.white).withAlpha(0.9).toColor(),
-                  HSLColor.fromColor(Colors.black12).withAlpha(1).toColor(),
-                ],
-                stops: const [0.1, 1],
-              ),
-              borderGradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [
-                  HSLColor.fromColor(Colors.white).withAlpha(0.4).toColor(),
-                  HSLColor.fromColor(Colors.white).withAlpha(0.1).toColor(),
-                ],
-              ),
-              child: SingleChildScrollView(
-                child: Padding(
-                  padding: const EdgeInsets.all(25.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        "Создать аккаунт",
-                        style: TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.black,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      Text(
-                        "Заполните поля, чтобы начать",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[800],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 30),
-                      MyTextField(
-                        hintText: "Логин",
-                        obscureText: false,
-                        controller: usernameController,
-                      ),
-                      const SizedBox(height: 15),
-                      MyTextField(
-                        hintText: "Email",
-                        obscureText: false,
-                        controller: emailController,
-                      ),
-                      const SizedBox(height: 15),
-                      MyTextField(
-                        hintText: "Пароль",
-                        obscureText: true,
-                        controller: passwordController,
-                      ),
-                      const SizedBox(height: 15),
-                      MyTextField(
-                        hintText: "Подтвердите пароль",
-                        obscureText: true,
-                        controller: confirmPasswordController,
-                      ),
-                      const SizedBox(height: 30),
-                      MyButton(
-                        text: "Зарегистрироваться",
-                        onTap: isLoading ? null : _handleRegister,
-                        child: isLoading
-                            ? const SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: CircularProgressIndicator(
-                            color: Colors.white,
-                            strokeWidth: 3,
-                          ),
-                        )
-                            : null,
-                      ),
-                      const SizedBox(height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            'Уже есть аккаунт? ',
-                            style: TextStyle(
-                              color: Colors.grey[900],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(width: 15),
-                          GestureDetector(
-                            onTap: widget.onTap,
-                            child: Text(
-                              'Войти',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: HSLColor.fromColor(Colors.white)
-                                    .withAlpha(0.7)
-                                    .toColor(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Icon(
+                  Icons.person_add_alt_1_rounded,
+                  size: 80,
+                  color: AppColors.accent,
                 ),
-              ),
+                const SizedBox(height: 20),
+                Text(
+                  'Создание аккаунта',
+                  textAlign: TextAlign.center,
+                  style: textTheme.headlineMedium,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  'Заполните поля ниже, чтобы начать',
+                  textAlign: TextAlign.center,
+                  style: textTheme.bodyMedium,
+                ),
+                const SizedBox(height: 40),
+                MyTextField(
+                  hintText: "Логин",
+                  icon: Icons.person_outline_rounded,
+                  controller: usernameController,
+                  obscureText: false,
+                ),
+                const SizedBox(height: 20),
+                MyTextField(
+                  hintText: "Email",
+                  icon: Icons.alternate_email_rounded,
+                  controller: emailController,
+                  obscureText: false,
+                  keyboardType: TextInputType.emailAddress,
+                ),
+                const SizedBox(height: 20),
+                MyTextField(
+                  hintText: "Пароль",
+                  icon: Icons.lock_outline_rounded,
+                  controller: passwordController,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 20),
+                MyTextField(
+                  hintText: "Подтвердите пароль",
+                  icon: Icons.lock_clock_rounded,
+                  controller: confirmPasswordController,
+                  obscureText: true,
+                ),
+                const SizedBox(height: 40),
+                MyButton(
+                  onPressed: isLoading ? null : () => register(context),
+                  isLoading: isLoading,
+                  text: "Создать аккаунт",
+                ),
+                const SizedBox(height: 30),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Уже есть аккаунт? ',
+                      style: textTheme.bodyMedium
+                          ?.copyWith(color: AppColors.textSecondary),
+                    ),
+                    GestureDetector(
+                      onTap: widget.onTap,
+                      child: Text(
+                        'Войти',
+                        style: textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.accent,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-        ));
+        ),
+      ),
+    );
   }
 }
