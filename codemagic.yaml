@@ -1,13 +1,10 @@
 workflows:
   ios-adhoc:
-    name: iOS Ad-Hoc Build
+    name: iOS IPA Generator
     environment:
       vars:
         APP_NAME: "Messenger"
         BUNDLE_ID: "com.example.messengerFlutter"
-        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
-        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
-
 
       apple_signing:
         distribution_type: ad_hoc
@@ -17,27 +14,34 @@ workflows:
         bundle_identifier: $BUNDLE_ID
 
     scripts:
-      - name: Build iOS IPA
+      - name: Setup environment
         script: |
-          # Установка зависимостей
           flutter pub get
           cd ios
-          pod install
+          pod install --repo-update
           cd ..
-          
-          # Сборка IPA
+
+      - name: Build IPA
+        script: |
+          # Основная команда сборки
           flutter build ipa --release \
+            --export-options-plist=ios/export_options.plist \
             --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
-            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
-            -t lib/main.dart \
-            --export-options-plist=ios/export_options.plist
-          
-          # Переименование IPA
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET
+
+          # Создание папки для артефактов
           mkdir -p artifacts/ios
-          cp build/ios/ipa/*.ipa artifacts/ios/$APP_NAME.ipa
+
+          # Копирование и переименование IPA
+          IPA_FILE=$(find build/ios/ipa -name '*.ipa' | head -1)
+          cp "$IPA_FILE" "artifacts/ios/$APP_NAME.ipa"
+
+          # Проверка
+          ls -lh artifacts/ios
 
     artifacts:
       - artifacts/ios/*.ipa
+
 
   android-release:
     name: Android Release Build
