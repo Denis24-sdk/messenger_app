@@ -2,10 +2,8 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-# Указываем платформу и минимальную версию iOS
 platform :ios, '13.0'
 
-# Отключаем отправку статистики CocoaPods
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
 
 project 'Runner', {
@@ -14,7 +12,6 @@ project 'Runner', {
   'Release' => :release,
 }
 
-# Эта функция динамически находит путь к Flutter SDK
 def flutter_root
   generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
   unless File.exist?(generated_xcode_build_settings_path)
@@ -28,7 +25,6 @@ def flutter_root
   raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
 end
 
-# Эта строка теперь использует правильный путь к podhelper
 require File.join(flutter_root, 'packages', 'flutter_tools', 'bin', 'podhelper')
 
 target 'Runner' do
