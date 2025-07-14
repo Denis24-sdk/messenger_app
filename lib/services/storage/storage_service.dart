@@ -3,13 +3,17 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:image_picker/image_picker.dart';
-import 'package:messenger_flutter/config.dart';
 import 'package:image/image.dart' as img;
 
 class StorageService {
   final ImagePicker _picker = ImagePicker();
   final String _replitServerUrl = 'https://6d5b6b86-0b93-4c2e-ac16-833bf4c89bfb-00-2nfhcy2sokeht.janeway.replit.dev';
-  final String _uploadUrl = 'https://api.cloudinary.com/v1_1/$cloudinaryCloudName/image/upload';
+
+  // Получаем значения из Dart-дефинов
+  final String _cloudinaryCloudName = const String.fromEnvironment('CLOUDINARY_CLOUD_NAME');
+  final String _cloudinaryUploadPreset = const String.fromEnvironment('CLOUDINARY_UPLOAD_PRESET');
+
+  String get _uploadUrl => 'https://api.cloudinary.com/v1_1/$_cloudinaryCloudName/image/upload';
 
   Future<File?> pickImage({ImageSource source = ImageSource.gallery}) async {
     try {
@@ -25,13 +29,11 @@ class StorageService {
 
   Future<File> _compressImage(File original, {int maxSize = 1600, int quality = 35}) async {
     try {
-      // Декодируем оригинальное изображение
       final bytes = await original.readAsBytes();
       img.Image? image = img.decodeImage(bytes);
 
       if (image == null) throw Exception('Не удалось декодировать изображение');
 
-      // Рассчитываем новые размеры
       final width = image.width;
       final height = image.height;
       final ratio = width / height;
@@ -52,7 +54,6 @@ class StorageService {
         interpolation: img.Interpolation.average,
       );
 
-      // Конвертируем и сжимаем
       List<int> compressedBytes = img.encodeJpg(resized, quality: quality);
 
       final tempDir = Directory.systemTemp;
@@ -68,10 +69,15 @@ class StorageService {
 
   Future<Map<String, String>?> uploadFile(File file) async {
     try {
+      // Проверяем наличие необходимых значений
+      if (_cloudinaryCloudName.isEmpty || _cloudinaryUploadPreset.isEmpty) {
+        throw Exception('Cloudinary credentials not configured!');
+      }
+
       final compressedFile = await _compressImage(file);
 
       var request = http.MultipartRequest('POST', Uri.parse(_uploadUrl));
-      request.fields['upload_preset'] = cloudinaryUploadPreset;
+      request.fields['upload_preset'] = _cloudinaryUploadPreset;
 
       request.files.add(await http.MultipartFile.fromPath(
           'file',
@@ -96,7 +102,6 @@ class StorageService {
     }
   }
 
-  /// Удаляет файл из Cloudinary через Replit
   Future<bool> deleteFile(String fileId) async {
     try {
       final response = await http.post(

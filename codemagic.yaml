@@ -1,0 +1,84 @@
+workflows:
+  ios-workflow:
+    name: iOS Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build iOS
+        script: |
+          flutter build ios --release \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
+
+  android-workflow:
+    name: Android Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build Android
+        script: |
+          flutter build apk \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
+
+  web-workflow:
+    name: Web Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build Web
+        script: |
+          flutter build web \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
+
+  windows-workflow:
+    name: Windows Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build Windows
+        script: |
+          flutter build windows \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
+
+  linux-workflow:
+    name: Linux Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build Linux
+        script: |
+          flutter build linux \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
+
+  macos-workflow:
+    name: macOS Build
+    environment:
+      vars:
+        CLOUDINARY_CLOUD_NAME: $CLOUDINARY_PROD_NAME
+        CLOUDINARY_UPLOAD_PRESET: $CLOUDINARY_UPLOAD_PRESET
+    scripts:
+      - name: Build macOS
+        script: |
+          flutter build macos \
+            --dart-define=CLOUDINARY_CLOUD_NAME=$CLOUDINARY_CLOUD_NAME \
+            --dart-define=CLOUDINARY_UPLOAD_PRESET=$CLOUDINARY_UPLOAD_PRESET \
+            -t lib/main.dart
