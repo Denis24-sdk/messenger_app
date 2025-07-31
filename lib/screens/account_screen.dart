@@ -106,7 +106,8 @@ class _AvatarSection extends StatelessWidget {
                 backgroundImage:
                 avatarUrl != null ? NetworkImage(avatarUrl) : null,
                 child: avatarUrl == null
-                    ? Icon(Icons.person, size: 60, color: AppColors.textSecondary)
+                    ? const Icon(Icons.person,
+                    size: 60, color: AppColors.textSecondary)
                     : null,
               ),
             ),
@@ -121,7 +122,8 @@ class _AvatarSection extends StatelessWidget {
                 radius: 20,
                 backgroundColor: AppColors.accent,
                 child: IconButton(
-                  icon: const Icon(Icons.camera_alt, color: AppColors.background, size: 22),
+                  icon: const Icon(Icons.camera_alt,
+                      color: AppColors.background, size: 22),
                   onPressed: provider.isUploading
                       ? null
                       : context.read<AccountProvider>().uploadAvatar,
@@ -171,7 +173,7 @@ class _NameDisplay extends StatelessWidget {
               color: AppColors.textPrimary),
         ),
         IconButton(
-          icon: Icon(Icons.edit, size: 20, color: AppColors.textSecondary),
+          icon: const Icon(Icons.edit, size: 20, color: AppColors.textSecondary),
           onPressed: () => context.read<AccountProvider>().setEditingName(true),
         ),
       ],
@@ -206,8 +208,8 @@ class _NameEditorState extends State<_NameEditor> {
       await context.read<AccountProvider>().updateUsername(_controller.text);
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(e.toString().replaceAll("Exception: ", ""))));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(e.toString().replaceAll("Exception: ", ""))));
       }
     }
   }
@@ -225,7 +227,7 @@ class _NameEditorState extends State<_NameEditor> {
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
                 color: AppColors.textPrimary),
-            decoration: InputDecoration.collapsed(
+            decoration: const InputDecoration.collapsed(
               hintText: 'Введите имя',
               hintStyle: TextStyle(
                 fontSize: 24,
@@ -284,7 +286,7 @@ class _BioDisplay extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('О себе:',
+        const Text('О себе:',
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -312,7 +314,7 @@ class _BioDisplay extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
+                const Icon(Icons.edit, size: 18, color: AppColors.textSecondary),
               ],
             ),
           ),
@@ -349,7 +351,7 @@ class _BioEditorState extends State<_BioEditor> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('О себе:',
+        const Text('О себе:',
             style: TextStyle(
                 fontWeight: FontWeight.bold,
                 fontSize: 16,
@@ -387,7 +389,8 @@ class _BioEditorState extends State<_BioEditor> {
             TextButton(
               onPressed: () =>
                   context.read<AccountProvider>().setEditingBio(false),
-              child: const Text('Отмена', style: TextStyle(color: AppColors.textSecondary)),
+              child: const Text('Отмена',
+                  style: TextStyle(color: AppColors.textSecondary)),
             ),
             const SizedBox(width: 8),
             FilledButton(
@@ -398,9 +401,7 @@ class _BioEditorState extends State<_BioEditor> {
                   foregroundColor: AppColors.background,
                   padding: const EdgeInsets.symmetric(horizontal: 24),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)
-                  )
-              ),
+                      borderRadius: BorderRadius.circular(12))),
               child: const Text('Сохранить'),
             ),
           ],
@@ -419,14 +420,18 @@ class _SettingsSection extends StatelessWidget {
       builder: (BuildContext dialogContext) {
         return AlertDialog(
           backgroundColor: AppColors.card,
-          title: const Text("Выход из аккаунта", style: TextStyle(color: AppColors.textPrimary)),
-          content: const Text("Вы уверены, что хотите выйти?", style: TextStyle(color: AppColors.textSecondary)),
+          title: const Text("Выход из аккаунта",
+              style: TextStyle(color: AppColors.textPrimary)),
+          content: const Text("Вы уверены, что хотите выйти?",
+              style: TextStyle(color: AppColors.textSecondary)),
           actions: <Widget>[
             TextButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text("Отмена", style: TextStyle(color: AppColors.textSecondary))),
+                child: const Text("Отмена",
+                    style: TextStyle(color: AppColors.textSecondary))),
             TextButton(
-              child: const Text("Выйти", style: TextStyle(color: Colors.redAccent)),
+              child:
+              const Text("Выйти", style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
                 Navigator.of(dialogContext).pop();
                 context.read<AuthService>().signOut();
@@ -443,14 +448,33 @@ class _SettingsSection extends StatelessWidget {
     return Column(
       children: [
         ListTile(
-          leading: Icon(Icons.settings, color: AppColors.textSecondary),
-          title: Text('Настройки', style: TextStyle(color: AppColors.textPrimary)),
+          leading: const Icon(Icons.settings, color: AppColors.textSecondary),
+          title: const Text('Настройки', style: TextStyle(color: AppColors.textPrimary)),
           onTap: () {
-            // TODO: Navigate to settings screen
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  'В разработке',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white60),
+                ),
+                backgroundColor: AppColors.accentGray,
+                duration: const Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12.0),
+                ),
+                margin: const EdgeInsets.only(
+                  bottom: 20.0,
+                  left: 60.0,
+                  right: 60.0,
+                ),
+              ),
+            );
           },
         ),
         ListTile(
-          leading: Icon(Icons.logout, color: Colors.redAccent),
+          leading: const Icon(Icons.logout, color: Colors.redAccent),
           title: const Text('Выйти', style: TextStyle(color: Colors.redAccent)),
           onTap: () => _confirmLogout(context),
         ),
