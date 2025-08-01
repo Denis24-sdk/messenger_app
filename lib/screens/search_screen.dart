@@ -27,27 +27,43 @@ class _SearchScreenState extends State<SearchScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: MyTextField(
-          controller: _searchController,
-          hintText: "Поиск пользователей...",
-          icon: Icons.search,
-          obscureText: false,
-          autofocus: true,
-          onChanged: (value) => setState(() {}),
-        ),
-        backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textSecondary,
+        automaticallyImplyLeading: false,
         elevation: 0,
-        actions: [
-          if (_searchController.text.isNotEmpty)
+        backgroundColor: AppColors.background,
+        title: Row(
+          children: [
             IconButton(
-              icon: const Icon(Icons.clear_rounded),
-              onPressed: () {
-                _searchController.clear();
-                setState(() {});
-              },
+              icon: const Icon(Icons.arrow_back),
+              onPressed: () => Navigator.of(context).pop(),
+              color: AppColors.textSecondary,
             ),
-        ],
+            Expanded(
+              child: MyTextField(
+                controller: _searchController,
+                hintText: "Поиск пользователей...",
+                icon: Icons.search,
+                obscureText: false,
+                autofocus: true,
+                onChanged: (value) => setState(() {}),
+              ),
+            ),
+            Visibility(
+              visible: _searchController.text.isNotEmpty,
+              maintainSize: true,
+              maintainAnimation: true,
+              maintainState: true,
+              child: IconButton(
+                icon: const Icon(Icons.clear_rounded),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: const [],
       ),
       body: _UserList(searchQuery: _searchController.text),
     );
