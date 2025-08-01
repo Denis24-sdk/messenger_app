@@ -344,7 +344,7 @@ class _ChatBubbleState extends State<ChatBubble> {
           Padding(
             padding: const EdgeInsets.only(right: 4.0),
             child: Text(
-              "изм.",
+              " ",
               style: TextStyle(
                 fontSize: 11,
                 color: statusColor,

@@ -180,26 +180,50 @@ class ChatService {
   }
 
   Future<void> deleteMessage(String chatRoomID, String messageID) async {
-    DocumentReference messageRef = _firestore
+    final messageRef = _firestore
         .collection("chat_rooms")
         .doc(chatRoomID)
         .collection("messages")
         .doc(messageID);
-    DocumentSnapshot doc = await messageRef.get();
 
-    if (doc.exists) {
-      Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-      if (data['type'] == 'image' && data['fileId'] != null) {
-        await _storageService.deleteFile(data['fileId']);
-      }
+    final chatRoomRef = _firestore.collection("chat_rooms").doc(chatRoomID);
+
+    final doc = await messageRef.get();
+    if (!doc.exists) return;
+
+    final data = doc.data() as Map<String, dynamic>;
+
+    if (data['type'] == 'image' && data['fileId'] != null) {
+      await _storageService.deleteFile(data['fileId']);
     }
 
-    await messageRef.update({
-      'message': 'Сообщение удалено',
-      'type': 'text',
-      'isEdited': true,
-      'fileId': null
-    });
+    await messageRef.delete();
+
+    final lastMessage = await chatRoomRef.get();
+    if (lastMessage.get('lastMessageSenderId') == data['senderID'] &&
+        lastMessage.get('lastMessageTimestamp') == data['timestamp']) {
+
+      final messagesSnapshot = await chatRoomRef
+          .collection("messages")
+          .orderBy("timestamp", descending: true)
+          .limit(1)
+          .get();
+
+      if (messagesSnapshot.docs.isNotEmpty) {
+        final newLastMessage = messagesSnapshot.docs.first.data();
+        await chatRoomRef.update({
+          'lastMessage': newLastMessage['message'],
+          'lastMessageSenderId': newLastMessage['senderID'],
+          'lastMessageTimestamp': newLastMessage['timestamp'],
+        });
+      } else {
+        await chatRoomRef.update({
+          'lastMessage': null,
+          'lastMessageSenderId': null,
+          'lastMessageTimestamp': FieldValue.serverTimestamp(),
+        });
+      }
+    }
   }
 
   Future<void> editMessage(
