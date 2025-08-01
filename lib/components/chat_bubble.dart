@@ -126,17 +126,17 @@ class _ChatBubbleState extends State<ChatBubble> {
   BorderRadius _getBubbleBorderRadius() {
     return widget.isCurrentUser
         ? const BorderRadius.only(
-            topLeft: Radius.circular(16),
-            bottomLeft: Radius.circular(16),
-            topRight: Radius.circular(4),
-            bottomRight: Radius.circular(16),
-          )
+      topLeft: Radius.circular(16),
+      bottomLeft: Radius.circular(16),
+      topRight: Radius.circular(4),
+      bottomRight: Radius.circular(16),
+    )
         : const BorderRadius.only(
-            topRight: Radius.circular(16),
-            bottomRight: Radius.circular(16),
-            topLeft: Radius.circular(4),
-            bottomLeft: Radius.circular(16),
-          );
+      topRight: Radius.circular(16),
+      bottomRight: Radius.circular(16),
+      topLeft: Radius.circular(4),
+      bottomLeft: Radius.circular(16),
+    );
   }
 
   Widget _buildBubbleContent(BuildContext context) {
@@ -202,9 +202,9 @@ class _ChatBubbleState extends State<ChatBubble> {
       child: ClipRRect(
         borderRadius: (widget.replyToMessage != null)
             ? const BorderRadius.only(
-                bottomLeft: Radius.circular(14),
-                bottomRight: Radius.circular(14),
-              )
+          bottomLeft: Radius.circular(14),
+          bottomRight: Radius.circular(14),
+        )
             : _getBubbleBorderRadius(),
         child: Container(
           padding: const EdgeInsets.all(3.0),
@@ -235,19 +235,23 @@ class _ChatBubbleState extends State<ChatBubble> {
           padding: EdgeInsets.fromLTRB(
             12,
             8,
-            widget.isCurrentUser ? 90 : 70,
+            widget.isCurrentUser ? 70 : 60,
             8,
           ),
           child: Text(
             widget.message,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 15.5,
               color: AppColors.textPrimary,
               height: 1.35,
             ),
           ),
         ),
-        Positioned(bottom: 4, right: 8, child: _buildStatusIndicator()),
+        Positioned(
+          bottom: 4,
+          right: 8,
+          child: _buildStatusIndicator(),
+        ),
       ],
     );
   }

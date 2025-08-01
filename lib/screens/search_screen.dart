@@ -95,25 +95,17 @@ class _UserList extends StatelessWidget {
         }
 
         final allUsers = snapshot.data!;
+        final query = searchQuery.toLowerCase().trim();
         final filteredUsers = allUsers.where((user) {
           if (user['uid'] == auth.currentUser!.uid) return false;
 
+          if (query.isEmpty) {
+            return true;
+          }
+
           final username = (user["username"] ?? "").toLowerCase();
-          final query = searchQuery.toLowerCase().trim();
-
-          if (query.isEmpty) return false;
-
           return username.contains(query);
         }).toList();
-
-        if (searchQuery.trim().isEmpty) {
-          return Center(
-              child: Text(
-                'Начните вводить логин',
-                style: TextStyle(color: AppColors.textSecondary),
-              )
-          );
-        }
 
         if (filteredUsers.isEmpty) {
           return Center(
@@ -175,7 +167,7 @@ class _UserListItem extends StatelessWidget {
             await chatService.createPrivateChatRoomIfNeeded(otherUserUid);
 
             if (context.mounted) {
-              Navigator.pop(context); // Закрываем экран
+              Navigator.pop(context);
               Navigator.push(
                 context,
                 MaterialPageRoute(
