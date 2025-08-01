@@ -62,21 +62,15 @@ class _ChatBubbleState extends State<ChatBubble> {
   Widget build(BuildContext context) {
     final currentUserBubbleColor = const Color(0xFF005C4B);
     final otherUserBubbleColor = AppColors.card;
-    final bubbleColor = widget.isCurrentUser
-        ? currentUserBubbleColor
-        : otherUserBubbleColor;
-    final bubbleAlignment = widget.isCurrentUser
-        ? CrossAxisAlignment.end
-        : CrossAxisAlignment.start;
+    final bubbleColor = widget.isCurrentUser ? currentUserBubbleColor : otherUserBubbleColor;
+    final bubbleAlignment = widget.isCurrentUser ? CrossAxisAlignment.end : CrossAxisAlignment.start;
     final double bubbleMaxWidth = MediaQuery.of(context).size.width * 0.78;
 
     return RepaintBoundary(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4.0, vertical: 2.0),
         child: Stack(
-          alignment: widget.isCurrentUser
-              ? Alignment.centerRight
-              : Alignment.centerLeft,
+          alignment: widget.isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
           children: [
             AnimatedOpacity(
               duration: const Duration(milliseconds: 100),
@@ -209,6 +203,7 @@ class _ChatBubbleState extends State<ChatBubble> {
         child: Container(
           padding: const EdgeInsets.all(3.0),
           child: Stack(
+            alignment: Alignment.bottomRight,
             children: [
               ConstrainedBox(
                 constraints: BoxConstraints(
@@ -216,11 +211,7 @@ class _ChatBubbleState extends State<ChatBubble> {
                 ),
                 child: _getImageWidget(),
               ),
-              Positioned(
-                bottom: 5,
-                right: 5,
-                child: _buildStatusIndicator(isForImage: true),
-              ),
+              _buildStatusIndicator(isForImage: true),
             ],
           ),
         ),
@@ -283,10 +274,13 @@ class _ChatBubbleState extends State<ChatBubble> {
         ),
       );
     }
+    final screenHeight = MediaQuery.of(context).size.height;
     final dpr = MediaQuery.of(context).devicePixelRatio;
+    final cacheHeight = (screenHeight * dpr * 1.5).round();
+
     return CachedNetworkImage(
       imageUrl: widget.message,
-      memCacheWidth: (300 * dpr).round(),
+      memCacheHeight: cacheHeight,
       fit: BoxFit.cover,
       placeholder: (context, url) => AspectRatio(
         aspectRatio: widget.aspectRatio ?? 16 / 9,
@@ -329,13 +323,9 @@ class _ChatBubbleState extends State<ChatBubble> {
   }
 
   Widget _buildIndicatorRow(bool isForImage) {
-    final statusColor = isForImage
-        ? Colors.white.withOpacity(0.9)
-        : AppColors.textSecondary;
+    final statusColor = isForImage ? Colors.white.withOpacity(0.9) : AppColors.textSecondary;
     final readColor = isForImage ? Colors.lightBlueAccent : AppColors.accent;
-    final String formattedTime = DateFormat(
-      'HH:mm',
-    ).format(widget.timestamp.toDate());
+    final String formattedTime = DateFormat('HH:mm').format(widget.timestamp.toDate());
 
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -386,6 +376,10 @@ class _ChatBubbleState extends State<ChatBubble> {
                     loadingBuilder: (context, event) => const Center(
                       child: CircularProgressIndicator(color: AppColors.accent),
                     ),
+                    minScale: PhotoViewComputedScale.contained * 0.9,
+                    maxScale: PhotoViewComputedScale.covered * 2.5,
+                    filterQuality: FilterQuality.medium,
+                    basePosition: Alignment.center,
                   ),
                   Positioned(
                     top: 10,

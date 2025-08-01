@@ -108,6 +108,12 @@ class _FilterButtons extends StatelessWidget {
   Widget _buildFilterButton(BuildContext context, HomeProvider provider,
       String text, ChatFilter filter) {
     bool isSelected = provider.currentFilter == filter;
+
+    final buttonChild = FittedBox(
+      fit: BoxFit.scaleDown, // масштабирует только вниз, если не помещается
+      child: Text(text, style: isSelected ? const TextStyle(fontWeight: FontWeight.bold) : null),
+    );
+
     return isSelected
         ? FilledButton(
       onPressed: () => provider.setFilter(filter),
@@ -117,7 +123,7 @@ class _FilterButtons extends StatelessWidget {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12)),
       ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
+      child: buttonChild,
     )
         : OutlinedButton(
       onPressed: () => provider.setFilter(filter),
@@ -128,9 +134,10 @@ class _FilterButtons extends StatelessWidget {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12)),
       ),
-      child: Text(text),
+      child: buttonChild,
     );
   }
+
 }
 
 class _ChatList extends StatelessWidget {
