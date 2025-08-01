@@ -433,8 +433,9 @@ class _SettingsSection extends StatelessWidget {
               child:
               const Text("Выйти", style: TextStyle(color: Colors.redAccent)),
               onPressed: () {
-                Navigator.of(dialogContext).pop();
                 context.read<AuthService>().signOut();
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();
               },
             ),
           ],
