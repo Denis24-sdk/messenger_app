@@ -24,6 +24,25 @@ class ChatService {
     final docSnapshot = await chatRoomRef.get();
 
     if (!docSnapshot.exists) {
+      final userDocs = await Future.wait([
+        _firestore.collection('Users').doc(currentUserID).get(),
+        _firestore.collection('Users').doc(otherUserID).get(),
+      ]);
+
+      final currentUserData = userDocs[0].data();
+      final otherUserData = userDocs[1].data();
+
+      final membersInfo = {
+        currentUserID: {
+          'username': currentUserData?['username'] ?? 'Пользователь',
+          'avatarUrl': currentUserData?['avatarUrl'],
+        },
+        otherUserID: {
+          'username': otherUserData?['username'] ?? 'Пользователь',
+          'avatarUrl': otherUserData?['avatarUrl'],
+        },
+      };
+
       await chatRoomRef.set({
         'chatRoomId': chatRoomID,
         'members': ids,
@@ -33,6 +52,7 @@ class ChatService {
         'lastMessageTimestamp': FieldValue.serverTimestamp(),
         'createdAt': FieldValue.serverTimestamp(),
         'unreadCount': {currentUserID: 0, otherUserID: 0},
+        'membersInfo': membersInfo,
       });
     }
     return chatRoomID;
@@ -51,6 +71,7 @@ class ChatService {
         .collection('chat_rooms')
         .where('members', arrayContains: currentUserID)
         .orderBy('lastMessageTimestamp', descending: true)
+        .limit(20)
         .snapshots()
         .map((snapshot) => snapshot.docs
         .map((doc) => ChatRoom.fromFirestore(doc, currentUserID))
@@ -63,6 +84,7 @@ class ChatService {
         .doc(chatRoomID)
         .collection("messages")
         .orderBy("timestamp", descending: true)
+        .limit(20)
         .snapshots()
         .map((snapshot) =>
         snapshot.docs.map((doc) => Message.fromFirestore(doc)).toList());
@@ -70,11 +92,21 @@ class ChatService {
 
   Future<void> createGroupChat(String groupName, List<String> memberIds) async {
     final String currentUserId = _auth.currentUser!.uid;
-    final String currentUsername =
-        _auth.currentUser!.displayName ?? _auth.currentUser!.email!;
 
     List<String> allMemberIds = [currentUserId, ...memberIds];
     allMemberIds = allMemberIds.toSet().toList();
+
+    Map<String, dynamic> membersInfo = {};
+    for (String id in allMemberIds) {
+      final userDoc = await _firestore.collection('Users').doc(id).get();
+      if (userDoc.exists) {
+        membersInfo[id] = {
+          'username': userDoc.data()?['username'] ?? 'Пользователь',
+          'avatarUrl': userDoc.data()?['avatarUrl'],
+        };
+      }
+    }
+    final String currentUsername = membersInfo[currentUserId]?['username'] ?? 'Кто-то';
 
     Map<String, int> initialUnreadCount = {
       for (var id in allMemberIds) id: 0
@@ -93,11 +125,11 @@ class ChatService {
       'lastMessageSenderId': 'system',
       'lastMessageTimestamp': Timestamp.now(),
       'unreadCount': initialUnreadCount,
+      'membersInfo': membersInfo,
     });
   }
 
-  Future<void> sendMessage(
-      String chatRoomID, String messageText, String? receiverID,
+  Future<void> sendMessage(String chatRoomID, String messageText, String? receiverID,
       {String? replyToMessage, String? replyToSenderName}) async {
     final String currentUserID = _auth.currentUser!.uid;
     final Timestamp timestamp = Timestamp.now();
@@ -200,9 +232,9 @@ class ChatService {
     await messageRef.delete();
 
     final lastMessage = await chatRoomRef.get();
-    if (lastMessage.get('lastMessageSenderId') == data['senderID'] &&
+    if (lastMessage.exists &&
+        lastMessage.get('lastMessageSenderId') == data['senderID'] &&
         lastMessage.get('lastMessageTimestamp') == data['timestamp']) {
-
       final messagesSnapshot = await chatRoomRef
           .collection("messages")
           .orderBy("timestamp", descending: true)

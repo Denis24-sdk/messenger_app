@@ -13,9 +13,7 @@ class HomeProvider with ChangeNotifier {
   bool _isLoading = true;
   ChatFilter _currentFilter = ChatFilter.all;
 
-  HomeProvider({required ChatService chatService}) : _chatService = chatService {
-    listenToChatRooms();
-  }
+  HomeProvider({required ChatService chatService}) : _chatService = chatService;
 
   bool get isLoading => _isLoading;
   ChatFilter get currentFilter => _currentFilter;
